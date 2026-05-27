@@ -1,0 +1,5 @@
+# Upstream Moon Bridge source tree — cloned by setup.sh, not committed.
+upstream/
+
+# User's local config containing the DeepSeek API key.
+config.yml

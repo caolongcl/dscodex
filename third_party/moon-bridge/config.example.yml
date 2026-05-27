@@ -1,0 +1,56 @@
+# Codex × DeepSeek 用 Moon Bridge 配置模板。
+# 复制成 ../config.yml 后填入你的 DeepSeek API key 再启动 run.sh。
+# 字段含义见 upstream/CookBook.md 与 upstream/config.example.yml。
+
+mode: "Transform"
+
+server:
+  addr: "127.0.0.1:38440"
+
+models:
+  deepseek-v4-pro:
+    context_window: 1000000
+    max_output_tokens: 384000
+    default_reasoning_level: "high"
+    supported_reasoning_levels:
+      - effort: "high"
+        description: "High reasoning effort"
+      - effort: "xhigh"
+        description: "Extra high reasoning effort"
+    supports_reasoning_summaries: true
+    default_reasoning_summary: "auto"
+    extensions:
+      deepseek_v4:
+        enabled: true
+
+  deepseek-v4-flash:
+    context_window: 1000000
+    max_output_tokens: 384000
+    default_reasoning_level: "high"
+    supported_reasoning_levels:
+      - effort: "high"
+        description: "High reasoning effort"
+      - effort: "xhigh"
+        description: "Extra high reasoning effort"
+    supports_reasoning_summaries: true
+    default_reasoning_summary: "auto"
+    extensions:
+      deepseek_v4:
+        enabled: true
+
+providers:
+  deepseek:
+    base_url: "https://api.deepseek.com/anthropic"
+    api_key: "sk-REPLACE-WITH-YOUR-DEEPSEEK-API-KEY"
+    offers:
+      - model: deepseek-v4-pro
+      - model: deepseek-v4-flash
+
+routes:
+  moonbridge:
+    model: deepseek-v4-pro
+    provider: deepseek
+
+defaults:
+  model: moonbridge
+  max_tokens: 65536
