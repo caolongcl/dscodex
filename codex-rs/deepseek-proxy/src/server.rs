@@ -40,10 +40,36 @@ struct AppState {
 pub async fn serve(args: Args) -> anyhow::Result<()> {
     let listener = TcpListener::bind(&args.listen).await?;
     let local_addr = listener.local_addr()?;
-    let upstream_chat_url = format!("{}/chat/completions", args.upstream.trim_end_matches('/'));
 
+    if args.print_listen {
+        println!("http://{local_addr}");
+        std::io::stdout().flush()?;
+    }
+
+    serve_on_listener(listener, &args.upstream).await
+}
+
+/// Run the proxy on an already-bound listener. This is the entry point used
+/// when Codex auto-spawns the proxy in-process (so the caller can bind first
+/// to detect port conflicts before deciding whether to spawn at all).
+pub async fn serve_on_listener(
+    listener: TcpListener,
+    upstream_base_url: &str,
+) -> anyhow::Result<()> {
+    let local_addr = listener.local_addr()?;
+    let upstream_chat_url = format!(
+        "{}/chat/completions",
+        upstream_base_url.trim_end_matches('/')
+    );
+
+    // Always direct-connect to DeepSeek. The user's HTTP_PROXY / HTTPS_PROXY
+    // env vars often point at a local Privoxy / Clash that mangles or fails
+    // SSE long-polling. DeepSeek's `api.deepseek.com` is reachable from
+    // mainland China without a proxy, so this is the safe default for a
+    // local provider proxy.
     let http = reqwest::Client::builder()
         .timeout(UPSTREAM_TIMEOUT)
+        .no_proxy()
         .build()?;
 
     info!(
@@ -51,11 +77,6 @@ pub async fn serve(args: Args) -> anyhow::Result<()> {
         upstream = %upstream_chat_url,
         "codex-deepseek-proxy listening"
     );
-
-    if args.print_listen {
-        println!("http://{local_addr}");
-        std::io::stdout().flush()?;
-    }
 
     let state = AppState {
         http,

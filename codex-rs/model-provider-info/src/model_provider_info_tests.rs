@@ -465,3 +465,72 @@ refresh_interval_ms = 0
     assert_eq!(auth.refresh_interval_ms, 0);
     assert_eq!(auth.refresh_interval(), None);
 }
+
+#[test]
+fn deepseek_built_in_provider_is_registered_with_loopback_base_url() {
+    let providers = built_in_model_providers(/*openai_base_url*/ None);
+    let deepseek = providers
+        .get(DEEPSEEK_PROVIDER_ID)
+        .expect("deepseek provider should be built-in");
+    assert_eq!(deepseek.name, "DeepSeek");
+    assert_eq!(
+        deepseek.base_url.as_deref(),
+        Some(format!("http://127.0.0.1:{DEFAULT_DEEPSEEK_PROXY_PORT}/v1").as_str())
+    );
+    assert_eq!(deepseek.env_key.as_deref(), Some("DEEPSEEK_API_KEY"));
+    assert_eq!(deepseek.wire_api, WireApi::Responses);
+}
+
+#[test]
+fn deepseek_user_config_fully_replaces_built_in() {
+    // Users with auth.command / external base_url should be able to override
+    // every field of the deepseek provider; "or_insert" semantics (used for
+    // other built-ins) would silently drop their config.
+    let mut built_in = built_in_model_providers(/*openai_base_url*/ None);
+
+    let user_provider = ModelProviderInfo {
+        name: "DeepSeek via Keychain".into(),
+        base_url: Some("http://127.0.0.1:9999/v1".into()),
+        env_key: None,
+        env_key_instructions: None,
+        experimental_bearer_token: None,
+        auth: Some(codex_protocol::config_types::ModelProviderAuthInfo {
+            command: "security".into(),
+            args: vec!["find-generic-password".into()],
+            timeout_ms: NonZeroU64::new(3000).unwrap(),
+            refresh_interval_ms: 0,
+            cwd: AbsolutePathBuf::from_absolute_path("/").unwrap(),
+        }),
+        aws: None,
+        wire_api: WireApi::Responses,
+        query_params: None,
+        http_headers: None,
+        env_http_headers: None,
+        request_max_retries: None,
+        stream_max_retries: None,
+        stream_idle_timeout_ms: None,
+        websocket_connect_timeout_ms: None,
+        requires_openai_auth: false,
+        supports_websockets: false,
+    };
+    let mut user_cfg = HashMap::new();
+    user_cfg.insert(DEEPSEEK_PROVIDER_ID.to_string(), user_provider.clone());
+
+    built_in = merge_configured_model_providers(built_in, user_cfg).unwrap();
+    let merged = built_in.get(DEEPSEEK_PROVIDER_ID).unwrap();
+    assert_eq!(
+        merged, &user_provider,
+        "user config must fully replace built-in deepseek entry"
+    );
+}
+
+#[test]
+fn deepseek_no_user_config_keeps_built_in_defaults() {
+    let providers = built_in_model_providers(None);
+    let merged = merge_configured_model_providers(providers, HashMap::new()).unwrap();
+    let deepseek = merged.get(DEEPSEEK_PROVIDER_ID).unwrap();
+    assert_eq!(
+        deepseek.base_url.as_deref(),
+        Some(format!("http://127.0.0.1:{DEFAULT_DEEPSEEK_PROXY_PORT}/v1").as_str())
+    );
+}

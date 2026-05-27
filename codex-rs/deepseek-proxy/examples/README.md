@@ -18,13 +18,16 @@ current process (per the `model_catalog_json` semantics).
 cp codex-rs/deepseek-proxy/examples/models_catalog.json "${CODEX_HOME:-$HOME/.codex}/models_catalog.json"
 ```
 
-Then in `~/.codex/config.toml` point Codex at it:
+Then in `~/.codex/config.toml`:
 
 ```toml
+model              = "deepseek-v4-pro"
+model_provider     = "deepseek"
 model_catalog_json = "~/.codex/models_catalog.json"
 ```
 
-Restart `codex`.  `/model` should now show:
+Restart `codex` (the in-tree proxy auto-spawns on first use; see
+`codex-rs/docs/deepseek.md` §3). `/model` should now show:
 
 ```
 1. deepseek-v4-pro    (default)

@@ -74,6 +74,12 @@ echo "==> Installing to $DEST"
 TMP="$DEST.tmp.$$"
 cp "$BUILT_BIN" "$TMP"
 chmod 0755 "$TMP"
+# On macOS, cargo adhoc-signs the binary at its build path. After cp the
+# embedded signature no longer matches the new path and the kernel SIGKILLs
+# the process on launch. Re-adhoc-sign at the destination.
+if [ "$(uname -s)" = "Darwin" ] && command -v codesign >/dev/null 2>&1; then
+  codesign --sign - --force "$TMP" 2>/dev/null || true
+fi
 mv -f "$TMP" "$DEST"
 
 if [ "$EDIT_PATH" -eq 1 ]; then

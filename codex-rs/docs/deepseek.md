@@ -42,43 +42,99 @@
 
 ---
 
-## 3. 选项 1（推荐）：内置 `codex deepseek-proxy`
+## 3. 选项 1（推荐）：内置 + 自动拉起
 
-仓内的 `codex-deepseek-proxy` crate 暴露成 codex 的隐藏子命令。它对 Codex 端讲 Responses API，对 DeepSeek 端直接打 `/v1/chat/completions`，**无需 Go / Python sidecar、单进程、与 codex 一起编译发布**。
+仓内的 `codex-deepseek-proxy` crate 直接被链接进 codex 主二进制。当 `model_provider = "deepseek"` 且 `base_url` 指向 loopback 时，**codex 启动会在同一进程里自动 spawn 一个 axum 监听任务**，对外讲 Responses API、对内打 DeepSeek `/v1/chat/completions`。退出时随 codex 一起结束，零生命周期管理。
+
+#### 最小可用配置
+
+`~/.codex/config.toml`（顶层）：
+
+```toml
+model              = "deepseek-v4-pro"      # 或 deepseek-v4-flash
+model_provider     = "deepseek"
+model_catalog_json = "~/.codex/models_catalog.json"
+```
+
+注意 **不再需要写 `[model_providers.deepseek]`**。内置默认：
+- `base_url = "http://127.0.0.1:38440/v1"`
+- `env_key  = "DEEPSEEK_API_KEY"`
+- `wire_api = "responses"`
 
 ```bash
-# 1) 启动 proxy（背景或单独终端均可）
-codex deepseek-proxy --listen 127.0.0.1:38440 --print-listen
-# stdout: http://127.0.0.1:38440
-
-# 2) 在 ~/.codex/config.toml 写 provider（详见 §5.3）
-
-# 3) 在另一个终端跑 codex
-export DEEPSEEK_API_KEY=sk-your-key
+export DEEPSEEK_API_KEY=sk-...
 codex
 ```
 
-**默认值**：
+启动时 stderr 会有一条 `INFO auto-spawned codex-deepseek-proxy addr=127.0.0.1:38440`。
 
-| 参数 | 默认 | 备注 |
-|---|---|---|
-| `--listen` | `127.0.0.1:0` | 0 = 系统选随机端口；配合 `--print-listen` 拿到端口 |
-| `--upstream` | `https://api.deepseek.com/v1` | 路径 `/chat/completions` 由 proxy 自动追加 |
-| `--print-listen` | (off) | 打开后 ready 时一行打印 `http://HOST:PORT` |
+#### 想覆盖默认？写 `[model_providers.deepseek]`
 
-**当前支持矩阵**：
+任何字段都可以替换内置默认，整个 section 完整生效（不只是合并），常见三种：
+
+```toml
+# 1) 用 keychain / 1Password 等命令拿 token（不走环境变量）
+[model_providers.deepseek]
+base_url = "http://127.0.0.1:38440/v1"
+wire_api = "responses"
+
+[model_providers.deepseek.auth]
+command = "security"
+args    = ["find-generic-password", "-a", "codex", "-s", "codex-deepseek-key", "-w"]
+timeout_ms          = 3000
+refresh_interval_ms = 0
+```
+
+```toml
+# 2) 换端口（避免冲突）
+[model_providers.deepseek]
+base_url = "http://127.0.0.1:39000/v1"
+env_key  = "DEEPSEEK_API_KEY"
+wire_api = "responses"
+```
+
+```toml
+# 3) 指向外部 sidecar（关闭 auto-spawn）
+[model_providers.deepseek]
+base_url = "http://my-gateway.corp.example.com/v1"   # 非 loopback → 跳过 auto-spawn
+env_key  = "DEEPSEEK_API_KEY"
+wire_api = "responses"
+```
+
+**触发 auto-spawn 的条件**（满足才会拉起）：
+
+| 条件 | 命中 |
+|---|---|
+| `model_provider == "deepseek"` | ✅ |
+| `base_url` scheme = `http` 且 host ∈ {`127.0.0.1`, `localhost`, `::1`} 且有显式端口 | ✅ |
+| 该端口未被占用 | ✅（占用则假定已有 proxy 在跑、跳过自动 spawn）|
+
+否则 codex 不动这个 base_url，按普通 provider 处理。
+
+**支持矩阵**：
 
 - ✅ 文本流式（B2）
 - ✅ Tool calling（B3）—— 并发 tool calls 自动按 `output_index` 分配
-- ✅ Reasoning 流（B4）—— 请求侧 `reasoning_effort` 映射（`low`/`medium`/`high` → `"high"`、`max` → `"max"`），响应侧 `delta.reasoning_content` → `response.reasoning_summary_*`
+- ✅ Reasoning 流（B4）—— `reasoning_effort` 映射 + `delta.reasoning_content` → `response.reasoning_summary_*`
 - ✅ `usage.reasoning_tokens` 透传
-- ⏳ 多模态（图片/音频输入）—— 未实现，会被丢弃
-- ⏳ 结构化输出（response_format=json_schema）—— 透传请求字段，DeepSeek 端是否生效取决于上游
+- ✅ Moon Bridge 对齐：`stream_options.include_usage`、thinking 模式清 sampling 参数、assistant tool_calls 强制带 `reasoning_content`
+- ⏳ 多模态（图片输入）—— 未实现
+- ⏳ 结构化输出（response_format=json_schema）—— 透传，DeepSeek 端是否生效取决于上游
+
+#### 不想用 auto-spawn？
+
+也可以手工独立运行 proxy（替代 codex 默认行为）：
+
+```bash
+codex deepseek-proxy --listen 127.0.0.1:38440 --print-listen
+```
+
+然后第二终端 `codex` 启动时端口已被占用 → auto-spawn 自动跳过、直接连你的实例。
 
 **调试**：
 
 ```bash
-RUST_LOG=codex_deepseek_proxy=debug codex deepseek-proxy --listen 127.0.0.1:38440 --print-listen
+RUST_LOG=codex_deepseek_proxy=debug codex
 ```
 
 ---
@@ -189,53 +245,30 @@ litellm --config litellm.yaml --port 4000
 
 不论选哪个 sidecar，Codex 端 `~/.codex/config.toml` 都长一样（只是端口和环境变量名换一下）：
 
-### 6.1 内置 `codex deepseek-proxy` 版（推荐）
+### 6.1 内置 + auto-spawn（推荐）
 
-#### 一次性：放一份 model catalog
-
-Codex 的 `/model` 选单与各模型默认参数（reasoning UI、上下文窗口预算、apply_patch
-工具挂载方式 …）来自 model catalog。默认捆绑的是 OpenAI 的 catalog；走 DeepSeek
-需要替换成含 v4 模型的 catalog，否则 `/model` 选单仍显示 GPT-5.x，且对话时报
-`Model metadata for deepseek-v4-pro not found` 警告。
+> 详细说明见 §3。这里只放最简版回顾。
 
 ```bash
 cp codex-rs/deepseek-proxy/examples/models_catalog.json \
    "${CODEX_HOME:-$HOME/.codex}/models_catalog.json"
 ```
 
-#### `~/.codex/config.toml`
-
-> **TOML 提示**：所有 `key = value` 的全局字段（`model`、`model_provider`、
-> `model_catalog_json` …）**必须出现在所有 `[section]` 节之前**，否则会被
-> 当成上一节的字段。不要用 `echo >> ~/.codex/config.toml`，请手工编辑。
+`~/.codex/config.toml`：
 
 ```toml
-# 顶层（无 [section] 包着）
-model              = "deepseek-v4-pro"      # 或 deepseek-v4-flash
+model              = "deepseek-v4-pro"
 model_provider     = "deepseek"
 model_catalog_json = "~/.codex/models_catalog.json"
-
-# 下面才是各种 [section]
-[model_providers.deepseek]
-name     = "DeepSeek (via codex deepseek-proxy)"
-base_url = "http://127.0.0.1:38440/v1"
-env_key  = "DEEPSEEK_API_KEY"               # 或换成 auth.command（参考 §3 命令式鉴权）
-wire_api = "responses"
+# [model_providers.deepseek] 可省略 —— 内置默认含 base_url / env_key / wire_api
 ```
-
-#### 跑起来
 
 ```bash
-export DEEPSEEK_API_KEY=sk-your-key
-# Terminal A:
-codex deepseek-proxy --listen 127.0.0.1:38440
-# Terminal B:
-codex
+export DEEPSEEK_API_KEY=sk-...
+codex          # 单条命令，无需另起 proxy
 ```
 
-> Codex 内置 proxy 直接把客户端的 `Authorization: Bearer …` 透传给 DeepSeek，所以 `env_key = "DEEPSEEK_API_KEY"` 走 Codex 的标准 provider 鉴权链路。
->
-> catalog 字段可调项见 `codex-rs/deepseek-proxy/examples/README.md`。
+> **TOML 提示**：顶层字段必须放在所有 `[section]` 之前；不要用 `echo >>` 追加。
 
 ### 6.2 Moon Bridge 版
 
@@ -334,7 +367,7 @@ Responses API 有一些 chat completions 等不到等价物的特性，经过翻
 |---|---|---|
 | **A** 外部 sidecar（Moon Bridge / LiteLLM） | ✅ 落地 | 仍保留作为备选 |
 | **B** `codex-deepseek-proxy` crate | ✅ 落地 | B0 骨架 / B1 请求翻译 / B2 SSE 文本 / B3 tool calling / B4 reasoning / B5 polish |
-| **C** 内置 provider 自动拉起 | 🔜 待开 | `built_in_model_providers` 注册 `deepseek`；仿 `ensure_oss_provider_ready` 自动启动 proxy 子进程；`export DEEPSEEK_API_KEY=…; codex` 一键可用 |
+| **C** 内置 provider + in-process auto-spawn | ✅ 落地 | `built_in_model_providers` 注册 `deepseek`；TUI/exec 启动路径调 `codex_deepseek_proxy::ensure_running`；proxy 跑在 codex 同进程的 tokio 任务里，端口冲突时自动跳过 |
 
 ---
 
