@@ -35,6 +35,61 @@ const SIDE_SLASH_COMMAND_UNAVAILABLE_HINT: &str =
     "Press Ctrl+C to return to the main thread first.";
 const GOAL_USAGE_HINT: &str = "Example: /goal improve benchmark coverage";
 const RAW_USAGE: &str = "Usage: /raw [on|off]";
+const POLISH_USAGE: &str = "Usage: /polish <draft prompt>";
+
+impl super::ChatWidget {
+    /// Open the polish preview overlay. Called from the AppEvent loop when
+    /// the background polish task finishes successfully.
+    pub(crate) fn show_polish_preview(&mut self, polished: String, draft: String) {
+        let send_tx = self.app_event_tx.clone();
+        let revise_tx = self.app_event_tx.clone();
+        self.bottom_pane.show_polish_preview(
+            polished,
+            draft,
+            Box::new(move |polished_text: String| {
+                send_tx.send(AppEvent::PolishConfirmSend(polished_text));
+            }),
+            Box::new(move |draft: String| {
+                revise_tx.send(AppEvent::PolishRequestRevise(draft));
+            }),
+        );
+        self.request_redraw();
+    }
+
+    /// Submit the polished text the user accepted on the preview as a fresh
+    /// user message. Called from the AppEvent dispatch loop when the preview
+    /// view emits `AppEvent::PolishConfirmSend`.
+    pub(crate) fn submit_polished_text(&mut self, text: String) {
+        let text = text.trim().to_string();
+        if text.is_empty() {
+            return;
+        }
+        let user_message = crate::chatwidget::user_messages::UserMessage {
+            text,
+            local_images: Vec::new(),
+            remote_image_urls: Vec::new(),
+            text_elements: Vec::new(),
+            mention_bindings: Vec::new(),
+        };
+        if self.is_session_configured() {
+            self.reasoning_buffer.clear();
+            self.full_reasoning_buffer.clear();
+            self.submit_user_message(user_message);
+        } else {
+            self.queue_user_message(user_message);
+        }
+    }
+
+    /// Put `/polish <draft>` back into the composer so the user can revise
+    /// their original draft. Called when Esc on the preview view or when the
+    /// background polish task fails outright.
+    pub(crate) fn restore_polish_draft(&mut self, draft: String) {
+        let text = format!("/polish {draft}");
+        self.bottom_pane
+            .set_composer_text(text, Vec::new(), Vec::new());
+        self.request_redraw();
+    }
+}
 
 impl ChatWidget {
     /// Dispatch a bare slash command and record its staged local-history entry.
@@ -255,6 +310,9 @@ impl ChatWidget {
             }
             SlashCommand::Plan => {
                 self.apply_plan_slash_command();
+            }
+            SlashCommand::Polish => {
+                self.add_info_message(POLISH_USAGE.to_string(), None);
             }
             SlashCommand::Goal => {
                 if !self.config.features.enabled(Feature::Goals) {
@@ -681,6 +739,51 @@ impl ChatWidget {
                     self.queue_user_message(user_message);
                 }
             }
+            SlashCommand::Polish if !trimmed.is_empty() => {
+                // Out-of-band polish: do NOT submit through the turn machinery.
+                // We POST directly to the provider's `/v1/responses` endpoint
+                // in a background task; codex-core's thread state is untouched.
+                let draft = trimmed.to_string();
+                let provider = self.config.model_provider.clone();
+                let model = self
+                    .config
+                    .model
+                    .clone()
+                    .unwrap_or_else(|| self.current_model().to_string());
+                let tx = self.app_event_tx.clone();
+                self.add_info_message(
+                    "✨ Polishing draft prompt…".to_string(),
+                    Some("running independently; not added to chat history".to_string()),
+                );
+                if source == SlashCommandDispatchSource::Live {
+                    self.bottom_pane.drain_pending_submission_state();
+                }
+                tokio::spawn(async move {
+                    let draft_for_event = draft.clone();
+                    match crate::chatwidget::polish_call::run_polish(
+                        crate::chatwidget::polish_call::PolishCallParams {
+                            provider,
+                            model,
+                            draft,
+                        },
+                    )
+                    .await
+                    {
+                        Ok(polished) => {
+                            tx.send(AppEvent::PolishResultReady {
+                                polished,
+                                draft: draft_for_event,
+                            });
+                        }
+                        Err(err) => {
+                            tx.send(AppEvent::PolishFailed {
+                                error: err.to_string(),
+                                draft: draft_for_event,
+                            });
+                        }
+                    }
+                });
+            }
             SlashCommand::Goal if !trimmed.is_empty() => {
                 if !self.config.features.enabled(Feature::Goals) {
                     return;
@@ -1005,6 +1108,7 @@ impl ChatWidget {
             | SlashCommand::Experimental
             | SlashCommand::AutoReview
             | SlashCommand::Memories
+            | SlashCommand::Polish
             | SlashCommand::Quit
             | SlashCommand::Exit
             | SlashCommand::Logout

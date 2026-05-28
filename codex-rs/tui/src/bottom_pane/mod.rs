@@ -100,6 +100,7 @@ mod footer;
 mod list_selection_view;
 mod memories_settings_view;
 mod mentions_v2;
+pub(crate) mod polish_preview_view;
 pub(crate) mod prompt_args;
 mod skill_popup;
 mod skills_toggle_view;
@@ -1279,6 +1280,20 @@ impl BottomPane {
 
     pub(crate) fn show_view(&mut self, view: Box<dyn BottomPaneView>) {
         self.push_view(view);
+    }
+
+    /// Push a `/polish` preview view on top of the bottom pane. `on_send`
+    /// fires when the user accepts with Enter; `on_revise` fires on Esc.
+    pub(crate) fn show_polish_preview(
+        &mut self,
+        polished: String,
+        draft: String,
+        on_send: polish_preview_view::PolishSendCallback,
+        on_revise: polish_preview_view::PolishReviseCallback,
+    ) {
+        let view = polish_preview_view::PolishPreviewView::new(polished, draft, on_send, on_revise);
+        self.push_view(Box::new(view));
+        self.request_redraw();
     }
 
     /// Called when the agent requests user approval.

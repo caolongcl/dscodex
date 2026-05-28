@@ -196,6 +196,27 @@ pub(crate) enum AppEvent {
     /// Start a new session.
     NewSession,
 
+    /// User pressed Enter on the `/polish` preview — submit the polished text
+    /// as a fresh user message.
+    PolishConfirmSend(String),
+
+    /// User pressed Esc on the `/polish` preview — restore the composer to
+    /// `/polish <draft>` so they can revise the original.
+    PolishRequestRevise(String),
+
+    /// Background `/polish` HTTP request finished; show the preview overlay.
+    PolishResultReady {
+        polished: String,
+        draft: String,
+    },
+
+    /// Background `/polish` HTTP request failed; surface the error and
+    /// restore the composer to `/polish <draft>` for retry/revision.
+    PolishFailed {
+        error: String,
+        draft: String,
+    },
+
     /// Result of the fresh startup thread that is attached after the input UI is live.
     StartupThreadStarted {
         result: Result<AppServerStartedThread, String>,

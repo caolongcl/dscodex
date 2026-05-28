@@ -26,6 +26,20 @@ impl App {
                 )
                 .await;
             }
+            AppEvent::PolishConfirmSend(text) => {
+                self.chat_widget.submit_polished_text(text);
+            }
+            AppEvent::PolishRequestRevise(draft) => {
+                self.chat_widget.restore_polish_draft(draft);
+            }
+            AppEvent::PolishResultReady { polished, draft } => {
+                self.chat_widget.show_polish_preview(polished, draft);
+            }
+            AppEvent::PolishFailed { error, draft } => {
+                self.chat_widget
+                    .add_error_message(format!("/polish failed: {error}"));
+                self.chat_widget.restore_polish_draft(draft);
+            }
             AppEvent::StartupThreadStarted { result } => {
                 self.handle_startup_thread_started(app_server, result)
                     .await?;
