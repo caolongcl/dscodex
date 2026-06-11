@@ -1,6 +1,7 @@
 # Codex 指令系统文档
 
 > 本文档枚举并说明 Codex 项目中所有向模型注入的指令（instructions/context fragments）。
+> 架构与编排管线（如何选择 base instructions、片段如何组装/增量注入/随历史重放、如何落到 API 与 DeepSeek 代理）见姊妹篇 [prompt-system.md](prompt-system.md)。
 
 ## 概述
 

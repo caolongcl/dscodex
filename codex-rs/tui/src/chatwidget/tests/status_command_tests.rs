@@ -77,6 +77,36 @@ async fn status_command_renders_immediately_without_rate_limit_refresh() {
 }
 
 #[tokio::test]
+async fn status_command_shows_active_role_only_when_set() {
+    let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(/*model_override*/ None).await;
+
+    chat.dispatch_command(SlashCommand::Status);
+    let rendered = match rx.try_recv() {
+        Ok(AppEvent::InsertHistoryCell(cell)) => {
+            lines_to_single_string(&cell.display_lines(/*width*/ 80))
+        }
+        other => panic!("expected status output, got {other:?}"),
+    };
+    assert!(
+        !rendered.contains("Role"),
+        "default sessions should not render a Role line, got: {rendered}"
+    );
+
+    chat.config.role = Some("writer".to_string());
+    chat.dispatch_command(SlashCommand::Status);
+    let rendered = match rx.try_recv() {
+        Ok(AppEvent::InsertHistoryCell(cell)) => {
+            lines_to_single_string(&cell.display_lines(/*width*/ 80))
+        }
+        other => panic!("expected status output, got {other:?}"),
+    };
+    assert!(
+        rendered.contains("Role") && rendered.contains("writer"),
+        "expected /status to render the active role, got: {rendered}"
+    );
+}
+
+#[tokio::test]
 async fn status_command_uses_catalog_default_reasoning_when_config_empty() {
     let (mut chat, mut rx, _op_rx) = make_chatwidget_manual(Some("gpt-5.4")).await;
     chat.config.model_reasoning_effort = None;

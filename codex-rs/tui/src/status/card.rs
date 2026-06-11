@@ -110,6 +110,7 @@ struct StatusHistoryCell {
     permissions: String,
     agents_summary: Arc<RwLock<String>>,
     collaboration_mode: Option<String>,
+    role: Option<String>,
     model_provider: Option<String>,
     remote_connection: Option<RemoteConnectionStatus>,
     show_chatgpt_usage_link: bool,
@@ -358,6 +359,7 @@ impl StatusHistoryCell {
                 directory: config.cwd.to_path_buf(),
                 permissions,
                 collaboration_mode: collaboration_mode.map(ToString::to_string),
+                role: config.role.clone(),
                 model_provider,
                 remote_connection: remote_connection.cloned(),
                 show_chatgpt_usage_link,
@@ -768,6 +770,9 @@ impl HistoryCell for StatusHistoryCell {
         if self.collaboration_mode.is_some() {
             push_label(&mut labels, &mut seen, "Collaboration mode");
         }
+        if self.role.is_some() {
+            push_label(&mut labels, &mut seen, "Role");
+        }
         push_label(&mut labels, &mut seen, "Token usage");
         if self.token_usage.context_window.is_some() {
             push_label(&mut labels, &mut seen, "Context window");
@@ -841,6 +846,9 @@ impl HistoryCell for StatusHistoryCell {
         }
         if let Some(collab_mode) = self.collaboration_mode.as_ref() {
             lines.push(formatter.line("Collaboration mode", vec![Span::from(collab_mode.clone())]));
+        }
+        if let Some(role) = self.role.as_ref() {
+            lines.push(formatter.line("Role", vec![Span::from(role.clone())]));
         }
         if let Some(session) = self.session_id.as_ref() {
             lines.push(formatter.line("Session", vec![Span::from(session.clone())]));
