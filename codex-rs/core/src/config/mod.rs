@@ -618,6 +618,11 @@ pub struct Config {
     /// Optionally specify the personality of the model
     pub personality: Option<Personality>,
 
+    /// Optionally select a role (persona) for the agent: a built-in name or
+    /// the stem of a file in `$CODEX_HOME/roles/<name>.md`. `None` means the
+    /// stock coding agent.
+    pub role: Option<String>,
+
     /// Effective permission configuration for shell tool execution.
     pub permissions: Permissions,
 
@@ -2244,6 +2249,7 @@ pub struct ConfigOverrides {
     pub base_instructions: Option<String>,
     pub developer_instructions: Option<String>,
     pub personality: Option<Personality>,
+    pub role: Option<String>,
     pub compact_prompt: Option<String>,
     pub show_raw_agent_reasoning: Option<bool>,
     pub tools_web_search_request: Option<bool>,
@@ -2633,6 +2639,7 @@ impl Config {
             base_instructions,
             developer_instructions,
             personality,
+            role,
             compact_prompt,
             show_raw_agent_reasoning,
             tools_web_search_request: override_tools_web_search_request,
@@ -3278,6 +3285,13 @@ impl Config {
                     .enabled(Feature::Personality)
                     .then_some(Personality::Pragmatic)
             });
+        // Normalize the role: trim, and fold the reserved "default" name (and
+        // empty strings) to `None` so downstream code has a single "no role"
+        // representation.
+        let role = role
+            .or(cfg.role)
+            .map(|role| role.trim().to_string())
+            .filter(|role| !role.is_empty() && role != codex_protocol::roles::DEFAULT_ROLE_NAME);
 
         let experimental_compact_prompt_path = cfg.experimental_compact_prompt_file.as_ref();
         let file_compact_prompt = Self::try_read_non_empty_file(
@@ -3462,6 +3476,7 @@ impl Config {
             user_instructions,
             base_instructions,
             personality,
+            role,
             developer_instructions,
             compact_prompt,
             include_permissions_instructions,

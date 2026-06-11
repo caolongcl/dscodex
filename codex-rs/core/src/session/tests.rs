@@ -2543,6 +2543,7 @@ async fn record_initial_history_forked_hydrates_previous_turn_settings() {
         file_system_sandbox_policy: None,
         model: previous_model.to_string(),
         personality: turn_context.personality,
+        role: None,
         collaboration_mode: Some(turn_context.collaboration_mode.clone()),
         multi_agent_version: None,
         realtime_active: Some(turn_context.realtime_active),
@@ -3150,6 +3151,7 @@ async fn set_rate_limits_retains_previous_credits() {
         user_instructions: config.user_instructions.clone(),
         service_tier: None,
         personality: config.personality,
+        role: None,
         base_instructions: config
             .base_instructions
             .clone()
@@ -3257,6 +3259,7 @@ async fn set_rate_limits_updates_plan_type_when_present() {
         user_instructions: config.user_instructions.clone(),
         service_tier: None,
         personality: config.personality,
+        role: None,
         base_instructions: config
             .base_instructions
             .clone()
@@ -3789,6 +3792,7 @@ pub(crate) async fn make_session_configuration_for_tests() -> SessionConfigurati
         user_instructions: config.user_instructions.clone(),
         service_tier: None,
         personality: config.personality,
+        role: None,
         base_instructions: config
             .base_instructions
             .clone()
@@ -4641,6 +4645,7 @@ async fn session_new_fails_when_zsh_fork_enabled_without_packaged_zsh() {
         user_instructions: config.user_instructions.clone(),
         service_tier: None,
         personality: config.personality,
+        role: None,
         base_instructions: config
             .base_instructions
             .clone()
@@ -4749,6 +4754,7 @@ pub(crate) async fn make_session_and_context() -> (Session, TurnContext) {
         user_instructions: config.user_instructions.clone(),
         service_tier: None,
         personality: config.personality,
+        role: None,
         base_instructions: config
             .base_instructions
             .clone()
@@ -4981,6 +4987,7 @@ async fn make_session_with_config_and_rx(
         user_instructions: config.user_instructions.clone(),
         service_tier: None,
         personality: config.personality,
+        role: None,
         base_instructions: config
             .base_instructions
             .clone()
@@ -5083,6 +5090,7 @@ async fn make_session_with_history_source_and_agent_control_and_rx(
         user_instructions: config.user_instructions.clone(),
         service_tier: None,
         personality: config.personality,
+        role: None,
         base_instructions: config
             .base_instructions
             .clone()
@@ -6815,6 +6823,7 @@ where
         user_instructions: config.user_instructions.clone(),
         service_tier: None,
         personality: config.personality,
+        role: None,
         base_instructions: config
             .base_instructions
             .clone()

@@ -456,6 +456,10 @@ pub struct ThreadSettingsOverrides {
 
     /// Updated personality preference.
     pub personality: Option<Personality>,
+
+    /// Updated role preference. Holds a role name; the reserved name
+    /// `default` clears the role (stock coding agent).
+    pub role: Option<String>,
 }
 
 /// Source classification for client-supplied context.
@@ -1931,6 +1935,10 @@ pub struct ThreadSettingsSnapshot {
     pub reasoning_summary: Option<ReasoningSummaryConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub personality: Option<Personality>,
+    /// Active role name, if a role other than the default is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub role: Option<String>,
     pub collaboration_mode: CollaborationMode,
 }
 
@@ -2941,6 +2949,9 @@ pub struct TurnContextItem {
     pub model: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub personality: Option<Personality>,
+    /// Active role name, if a role other than the default was set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collaboration_mode: Option<CollaborationMode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -5221,6 +5232,7 @@ mod tests {
             ])),
             model: "gpt-5".to_string(),
             personality: None,
+            role: None,
             collaboration_mode: None,
             multi_agent_version: None,
             realtime_active: None,

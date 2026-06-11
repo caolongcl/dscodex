@@ -38,6 +38,7 @@ fn resume_history(
         file_system_sandbox_policy: None,
         model: previous_model.to_string(),
         personality: None,
+        role: None,
         collaboration_mode: None,
         multi_agent_version: None,
         realtime_active: None,

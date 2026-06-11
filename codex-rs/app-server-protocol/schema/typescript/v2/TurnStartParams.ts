@@ -39,6 +39,10 @@ summary?: ReasoningSummary | null, /**
  * Override the personality for this turn and subsequent turns.
  */
 personality?: Personality | null, /**
+ * Override the role for this turn and subsequent turns; the reserved
+ * name `default` clears the role.
+ */
+role?: string | null, /**
  * Optional JSON Schema used to constrain the final assistant message for
  * this turn.
  */

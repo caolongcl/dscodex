@@ -724,6 +724,7 @@ impl AppServerSession {
                     effort,
                     summary,
                     personality,
+                    role: None,
                     output_schema,
                     collaboration_mode,
                 },
@@ -1297,6 +1298,7 @@ fn config_request_overrides_from_config(
             .personality
             .map(|personality| personality.to_string()),
     );
+    insert("role", config.role.clone());
     insert(
         "web_search",
         Some(config.web_search_mode.value().to_string()),
@@ -1724,6 +1726,7 @@ async fn thread_session_state_from_thread_response(
         reasoning_effort,
         collaboration_mode: None,
         personality: config.personality,
+        role: config.role.clone(),
         message_history: Some(MessageHistoryMetadata {
             log_id,
             entry_count,

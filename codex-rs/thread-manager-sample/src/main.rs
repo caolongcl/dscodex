@@ -174,6 +174,7 @@ fn new_config(model: Option<String>, arg0_paths: Arg0DispatchPaths) -> anyhow::R
         model_provider_id,
         model_provider,
         personality: None,
+        role: None,
         permissions: Permissions::from_approval_and_profile(
             Constrained::allow_any(AskForApproval::Never),
             Constrained::allow_any(PermissionProfile::read_only()),

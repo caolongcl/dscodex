@@ -67,6 +67,8 @@ pub struct ThreadConfigSnapshot {
     pub reasoning_effort: Option<ReasoningEffort>,
     pub reasoning_summary: Option<ReasoningSummary>,
     pub personality: Option<Personality>,
+    /// Active role name, when a role other than the default is set.
+    pub role: Option<String>,
     pub collaboration_mode: CollaborationMode,
     pub session_source: SessionSource,
     pub forked_from_thread_id: Option<ThreadId>,

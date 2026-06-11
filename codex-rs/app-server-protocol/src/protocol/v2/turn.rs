@@ -129,6 +129,10 @@ pub struct TurnStartParams {
     /// Override the personality for this turn and subsequent turns.
     #[ts(optional = nullable)]
     pub personality: Option<Personality>,
+    /// Override the role for this turn and subsequent turns; the reserved
+    /// name `default` clears the role.
+    #[ts(optional = nullable)]
+    pub role: Option<String>,
     /// Optional JSON Schema used to constrain the final assistant message for
     /// this turn.
     #[ts(optional = nullable)]

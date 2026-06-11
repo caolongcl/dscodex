@@ -28,6 +28,7 @@ use crate::context::ContextualUserFragment;
 use crate::context::NetworkRuleSaved;
 use crate::context::PermissionsInstructions;
 use crate::context::PersonalitySpecInstructions;
+use crate::context::RoleInstructions;
 use crate::default_skill_metadata_budget;
 use crate::environment_selection::ResolvedTurnEnvironments;
 use crate::exec_policy::ExecPolicyManager;
@@ -570,6 +571,18 @@ impl Codex {
             .or_else(|| conversation_history.get_base_instructions().map(|s| s.text))
             .unwrap_or_else(|| model_info.get_model_instructions(config.personality));
 
+        // Resolve the configured role (persona) name into its spec. Unknown
+        // names degrade to the default coding agent rather than failing the
+        // session.
+        let role = config.role.as_deref().and_then(|name| {
+            let role = codex_protocol::roles::find_role(&config.codex_home, name)
+                .filter(|role| !role.spec.trim().is_empty());
+            if role.is_none() {
+                warn!("unknown role '{name}' in config; using the default coding agent");
+            }
+            role
+        });
+
         // Dynamic tools are defined at thread start and persisted in rollout session metadata.
         let dynamic_tools = if dynamic_tools.is_empty() {
             conversation_history.get_dynamic_tools().unwrap_or_default()
@@ -599,6 +612,7 @@ impl Codex {
             developer_instructions: config.developer_instructions.clone(),
             user_instructions,
             personality: config.personality,
+            role,
             base_instructions,
             compact_prompt: config.compact_prompt.clone(),
             approval_policy: config.permissions.approval_policy.clone(),
@@ -2842,6 +2856,11 @@ impl Session {
                 developer_sections
                     .push(PersonalitySpecInstructions::new(personality_message).render());
             }
+        }
+        if let Some(role) = turn_context.role.as_ref()
+            && !role.spec.trim().is_empty()
+        {
+            developer_sections.push(RoleInstructions::new(role.spec.clone()).render());
         }
         if turn_context.config.include_apps_instructions && turn_context.apps_enabled() {
             let mcp_connection_manager = self.services.mcp_connection_manager.read().await;

@@ -325,6 +325,13 @@
             }
           ]
         },
+        "role": {
+          "description": "Active role name, when a role other than the default is set.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "sandboxPolicy": {
           "$ref": "#/definitions/SandboxPolicy"
         },

@@ -17808,6 +17808,13 @@
               }
             ]
           },
+          "role": {
+            "description": "Role (persona) name for the resumed thread.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "sandbox": {
             "anyOf": [
               {
@@ -18030,6 +18037,13 @@
               }
             ]
           },
+          "role": {
+            "description": "Active role name, when a role other than the default is set.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "sandboxPolicy": {
             "$ref": "#/definitions/v2/SandboxPolicy"
           },
@@ -18201,6 +18215,13 @@
               {
                 "type": "null"
               }
+            ]
+          },
+          "role": {
+            "description": "Role (persona) name for the thread; `default` selects the stock coding agent.",
+            "type": [
+              "string",
+              "null"
             ]
           },
           "sandbox": {
@@ -18975,6 +18996,13 @@
               }
             ],
             "description": "Override the personality for this turn and subsequent turns."
+          },
+          "role": {
+            "description": "Override the role for this turn and subsequent turns; the reserved name `default` clears the role.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "sandboxPolicy": {
             "anyOf": [

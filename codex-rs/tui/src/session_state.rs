@@ -51,6 +51,7 @@ pub(crate) struct ThreadSessionState {
     pub(crate) reasoning_effort: Option<codex_protocol::openai_models::ReasoningEffort>,
     pub(crate) collaboration_mode: Option<Box<CollaborationMode>>,
     pub(crate) personality: Option<Personality>,
+    pub(crate) role: Option<String>,
     pub(crate) message_history: Option<MessageHistoryMetadata>,
     pub(crate) network_proxy: Option<SessionNetworkProxyRuntime>,
     pub(crate) rollout_path: Option<PathBuf>,

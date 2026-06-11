@@ -14,6 +14,7 @@ use codex_protocol::openai_models::ToolMode;
 use codex_protocol::protocol::MultiAgentVersion;
 use codex_protocol::protocol::ThreadSource;
 use codex_protocol::protocol::TurnEnvironmentSelection;
+use codex_protocol::roles::RoleSpec;
 use codex_sandboxing::compatibility_sandbox_policy_for_permission_profile;
 use codex_sandboxing::policy_transforms::effective_file_system_sandbox_policy;
 use codex_sandboxing::policy_transforms::effective_network_sandbox_policy;
@@ -84,6 +85,7 @@ pub struct TurnContext {
     pub(crate) collaboration_mode: CollaborationMode,
     pub(crate) multi_agent_version: MultiAgentVersion,
     pub(crate) personality: Option<Personality>,
+    pub(crate) role: Option<RoleSpec>,
     pub(crate) approval_policy: Constrained<AskForApproval>,
     pub(crate) permission_profile: PermissionProfile,
     pub(crate) network: Option<NetworkProxy>,
@@ -252,6 +254,7 @@ impl TurnContext {
             collaboration_mode,
             multi_agent_version: self.multi_agent_version,
             personality: self.personality,
+            role: self.role.clone(),
             approval_policy: self.approval_policy.clone(),
             permission_profile: self.permission_profile.clone(),
             network: self.network.clone(),
@@ -356,6 +359,7 @@ impl TurnContext {
             file_system_sandbox_policy: self.non_legacy_file_system_sandbox_policy(),
             model: self.model_info.slug.clone(),
             personality: self.personality,
+            role: self.role.as_ref().map(|role| role.name.clone()),
             collaboration_mode: Some(self.collaboration_mode.clone()),
             multi_agent_version: Some(self.multi_agent_version),
             realtime_active: Some(self.realtime_active),
@@ -415,6 +419,10 @@ impl Session {
         per_turn_config.model_reasoning_summary = session_configuration.model_reasoning_summary;
         per_turn_config.service_tier = session_configuration.service_tier.clone();
         per_turn_config.personality = session_configuration.personality;
+        per_turn_config.role = session_configuration
+            .role
+            .as_ref()
+            .map(|role| role.name.clone());
         per_turn_config.approvals_reviewer = session_configuration.approvals_reviewer;
         session_configuration
             .apply_permission_profile_to_permissions(&mut per_turn_config.permissions);
@@ -554,6 +562,7 @@ impl Session {
             collaboration_mode: session_configuration.collaboration_mode.clone(),
             multi_agent_version,
             personality: session_configuration.personality,
+            role: session_configuration.role.clone(),
             approval_policy: session_configuration.approval_policy.clone(),
             permission_profile: session_configuration.permission_profile(),
             network,

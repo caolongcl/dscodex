@@ -2355,6 +2355,7 @@ async fn turn_start_updates_sandbox_and_cwd_between_turns_v2() -> Result<()> {
             summary: Some(ReasoningSummary::Auto),
             service_tier: None,
             personality: None,
+            role: None,
             output_schema: None,
             collaboration_mode: None,
         })
@@ -2394,6 +2395,7 @@ async fn turn_start_updates_sandbox_and_cwd_between_turns_v2() -> Result<()> {
             summary: Some(ReasoningSummary::Auto),
             service_tier: None,
             personality: None,
+            role: None,
             output_schema: None,
             collaboration_mode: None,
         })

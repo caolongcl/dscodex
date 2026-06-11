@@ -721,6 +721,10 @@
         "plan_mode_reasoning_effort": {
           "$ref": "#/definitions/ReasoningEffort"
         },
+        "role": {
+          "description": "Optional role (persona) name; see top-level `role`.",
+          "type": "string"
+        },
         "sandbox_mode": {
           "$ref": "#/definitions/SandboxMode"
         },
@@ -5113,6 +5117,10 @@
     },
     "review_model": {
       "description": "Review model override used by the `/review` feature.",
+      "type": "string"
+    },
+    "role": {
+      "description": "Optionally select a role (persona) for the agent. Accepts a built-in role name (`default`, `writer`, `researcher`) or the stem of a file in `$CODEX_HOME/roles/<name>.md`.",
       "type": "string"
     },
     "sandbox_mode": {

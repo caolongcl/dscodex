@@ -201,6 +201,10 @@ impl ChatWidget {
         self.config.personality = Some(personality);
     }
 
+    pub(crate) fn set_role(&mut self, role: Option<String>) {
+        self.config.role = role;
+    }
+
     pub(crate) fn status_account_display(&self) -> Option<&StatusAccountDisplay> {
         self.status_account_display.as_ref()
     }
@@ -515,6 +519,7 @@ impl ChatWidget {
         self.set_approval_policy(settings.approval_policy);
         self.set_approvals_reviewer(settings.approvals_reviewer.to_core());
         self.config.personality = settings.personality;
+        self.config.role = settings.role.clone();
 
         let permission_profile = PermissionProfile::from_legacy_sandbox_policy_for_cwd(
             &settings.sandbox_policy.to_core(),

@@ -308,6 +308,9 @@ impl ChatWidget {
             SlashCommand::Personality => {
                 self.open_personality_popup();
             }
+            SlashCommand::Role => {
+                self.open_role_popup();
+            }
             SlashCommand::Plan => {
                 self.apply_plan_slash_command();
             }
@@ -1095,6 +1098,7 @@ impl ChatWidget {
             | SlashCommand::Realtime
             | SlashCommand::Settings
             | SlashCommand::Personality
+            | SlashCommand::Role
             | SlashCommand::Plan
             | SlashCommand::Goal
             | SlashCommand::Side

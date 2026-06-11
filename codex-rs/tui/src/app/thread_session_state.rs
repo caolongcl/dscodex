@@ -84,6 +84,7 @@ impl App {
                 // thread-scoped state from the currently active session.
                 session.collaboration_mode = None;
                 session.personality = None;
+                session.role = None;
             }
             session
         } else {
@@ -107,6 +108,7 @@ impl App {
                 reasoning_effort: self.chat_widget.current_reasoning_effort(),
                 collaboration_mode: None,
                 personality: None,
+                role: None,
                 message_history: None,
                 network_proxy: None,
                 rollout_path: thread.path.clone(),
@@ -189,6 +191,7 @@ mod tests {
             reasoning_effort: None,
             collaboration_mode: None,
             personality: None,
+            role: None,
             message_history: None,
             network_proxy: None,
             rollout_path: Some(PathBuf::new()),

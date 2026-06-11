@@ -124,7 +124,33 @@ async fn thread_settings_update(
         service_tier,
         collaboration_mode,
         personality,
+        role,
     } = thread_settings;
+    // Resolve a requested role name into its spec. The reserved "default"
+    // name clears the role; unknown names leave the current role unchanged.
+    let role = match role {
+        None => None,
+        Some(name) if name == codex_protocol::roles::DEFAULT_ROLE_NAME => Some(None),
+        Some(name) => {
+            let codex_home = {
+                let state = sess.state.lock().await;
+                state
+                    .session_configuration
+                    .original_config_do_not_use
+                    .codex_home
+                    .clone()
+            };
+            match codex_protocol::roles::find_role(&codex_home, &name)
+                .filter(|role| !role.spec.trim().is_empty())
+            {
+                Some(role_spec) => Some(Some(role_spec)),
+                None => {
+                    tracing::warn!("unknown role '{name}' requested; keeping current role");
+                    None
+                }
+            }
+        }
+    };
     let collaboration_mode = match collaboration_mode {
         Some(collaboration_mode) => collaboration_mode,
         None => {
@@ -151,6 +177,7 @@ async fn thread_settings_update(
         reasoning_summary: summary,
         service_tier,
         personality,
+        role,
         ..Default::default()
     }
 }
@@ -174,6 +201,7 @@ async fn thread_settings_applied_event(sess: &Session) -> EventMsg {
             reasoning_effort: snapshot.reasoning_effort,
             reasoning_summary: snapshot.reasoning_summary,
             personality: snapshot.personality,
+            role: snapshot.role,
             collaboration_mode: snapshot.collaboration_mode,
         },
     })

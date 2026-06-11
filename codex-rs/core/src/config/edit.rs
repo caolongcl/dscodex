@@ -38,6 +38,8 @@ pub enum ConfigEdit {
     SetServiceTier { service_tier: Option<String> },
     /// Update the active (or default) model personality.
     SetModelPersonality { personality: Option<Personality> },
+    /// Update the active (or default) agent role; `None` removes the key.
+    SetRole { role: Option<String> },
     /// Toggle the acknowledgement flag under `[notice]`.
     SetNoticeHideFullAccessWarning(bool),
     /// Toggle the Windows world-writable directories warning acknowledgement flag.
@@ -246,6 +248,8 @@ impl ConfigDocument {
                 &["personality"],
                 personality.map(|personality| value(personality.to_string())),
             )),
+            ConfigEdit::SetRole { role } => Ok(self
+                .write_optional_value(&["role"], role.as_ref().map(|role| value(role.as_str())))),
             ConfigEdit::SetNoticeHideFullAccessWarning(acknowledged) => Ok(self.write_value(
                 &[NOTICE_TABLE_KEY, "hide_full_access_warning"],
                 value(*acknowledged),
@@ -792,6 +796,11 @@ impl ConfigEditsBuilder {
     pub fn set_personality(mut self, personality: Option<Personality>) -> Self {
         self.edits
             .push(ConfigEdit::SetModelPersonality { personality });
+        self
+    }
+
+    pub fn set_role(mut self, role: Option<String>) -> Self {
+        self.edits.push(ConfigEdit::SetRole { role });
         self
     }
 

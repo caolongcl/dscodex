@@ -226,6 +226,7 @@ mod tests {
                 },
             },
             personality: None,
+            role: None,
         }
     }
 

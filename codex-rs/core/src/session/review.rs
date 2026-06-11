@@ -136,6 +136,8 @@ pub(super) async fn spawn_review_thread(
         collaboration_mode: parent_turn_context.collaboration_mode.clone(),
         multi_agent_version: MultiAgentVersion::Disabled,
         personality: parent_turn_context.personality,
+        // Reviews keep the stock coding persona regardless of active role.
+        role: None,
         approval_policy: parent_turn_context.approval_policy.clone(),
         permission_profile: parent_turn_context.permission_profile(),
         network: parent_turn_context.network.clone(),

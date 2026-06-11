@@ -676,6 +676,7 @@ mod thread_processor_behavior_tests {
             base_instructions: None,
             developer_instructions: None,
             personality: None,
+            role: None,
             exclude_turns: false,
             initial_turns_page: None,
         };
@@ -694,6 +695,7 @@ mod thread_processor_behavior_tests {
             reasoning_effort: None,
             reasoning_summary: None,
             personality: None,
+            role: None,
             collaboration_mode: CollaborationMode {
                 mode: ModeKind::Default,
                 settings: Settings {

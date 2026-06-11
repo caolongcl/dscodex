@@ -14,6 +14,7 @@ use codex_protocol::protocol::MultiAgentVersion;
 use codex_protocol::protocol::ThreadSource;
 use codex_protocol::protocol::TurnEnvironmentSelection;
 use codex_protocol::protocol::TurnEnvironmentSelections;
+use codex_protocol::roles::RoleSpec;
 use std::sync::OnceLock;
 use tokio::sync::Semaphore;
 
@@ -61,6 +62,10 @@ pub(crate) struct SessionConfiguration {
 
     /// Personality preference for the model.
     pub(super) personality: Option<Personality>,
+
+    /// Resolved role (persona) for the session, if one other than the
+    /// default coding agent is active.
+    pub(super) role: Option<RoleSpec>,
 
     /// Base instructions for the session.
     pub(super) base_instructions: String,
@@ -189,6 +194,7 @@ impl SessionConfiguration {
             reasoning_effort: self.collaboration_mode.reasoning_effort(),
             reasoning_summary: self.model_reasoning_summary,
             personality: self.personality,
+            role: self.role.as_ref().map(|role| role.name.clone()),
             collaboration_mode: self.collaboration_mode.clone(),
             session_source: self.session_source.clone(),
             forked_from_thread_id: self.forked_from_thread_id,
@@ -244,6 +250,9 @@ impl SessionConfiguration {
         }
         if let Some(personality) = updates.personality {
             next_configuration.personality = Some(personality);
+        }
+        if let Some(role) = updates.role.clone() {
+            next_configuration.role = role;
         }
         if let Some(approval_policy) = updates.approval_policy {
             next_configuration.approval_policy.set(approval_policy)?;
@@ -424,6 +433,9 @@ pub(crate) struct SessionSettingsUpdate {
     pub(crate) service_tier: Option<Option<String>>,
     pub(crate) final_output_json_schema: Option<Option<Value>>,
     pub(crate) personality: Option<Personality>,
+    /// `None` leaves the role unchanged; `Some(None)` clears it back to the
+    /// default coding agent; `Some(Some(_))` activates a resolved role.
+    pub(crate) role: Option<Option<RoleSpec>>,
     pub(crate) app_server_client_name: Option<String>,
     pub(crate) app_server_client_version: Option<String>,
 }

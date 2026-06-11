@@ -3681,6 +3681,7 @@ fn turn_start_params_preserve_explicit_null_service_tier() {
         output_schema: None,
         collaboration_mode: None,
         personality: None,
+        role: None,
     };
     let serialized_without_override =
         serde_json::to_value(&without_override).expect("params should serialize");

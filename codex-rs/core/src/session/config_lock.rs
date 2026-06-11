@@ -114,6 +114,7 @@ fn save_session_resolved_fields(sc: &SessionConfiguration, lock_config: &mut Con
     lock_config.developer_instructions = sc.developer_instructions.clone();
     lock_config.compact_prompt = sc.compact_prompt.clone();
     lock_config.personality = sc.personality;
+    lock_config.role = sc.role.as_ref().map(|role| role.name.clone());
     lock_config.approval_policy = Some(sc.approval_policy.value());
     lock_config.approvals_reviewer = Some(sc.approvals_reviewer);
 }

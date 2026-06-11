@@ -783,6 +783,10 @@ impl App {
                 self.sync_active_thread_personality_setting(app_server, personality)
                     .await;
             }
+            AppEvent::UpdateRole(role) => {
+                self.on_update_role(role.clone());
+                self.sync_active_thread_role_setting(app_server, role).await;
+            }
             AppEvent::OpenRealtimeAudioDeviceSelection { kind } => {
                 self.chat_widget.open_realtime_audio_device_selection(kind);
             }
@@ -1401,6 +1405,31 @@ impl App {
                         self.chat_widget.add_error_message(format!(
                             "Failed to save default personality: {err}"
                         ));
+                    }
+                }
+            }
+            AppEvent::PersistRoleSelection { role } => {
+                match crate::config_update::write_config_batch(
+                    app_server.request_handle(),
+                    vec![crate::config_update::replace_config_value(
+                        "role",
+                        serde_json::json!(role),
+                    )],
+                )
+                .await
+                {
+                    Ok(_) => {
+                        let message = if role == codex_protocol::roles::DEFAULT_ROLE_NAME {
+                            "Role cleared: using the default coding agent".to_string()
+                        } else {
+                            format!("Role set to {role}")
+                        };
+                        self.chat_widget.add_info_message(message, /*hint*/ None);
+                    }
+                    Err(err) => {
+                        tracing::error!(error = %err, "failed to persist role selection");
+                        self.chat_widget
+                            .add_error_message(format!("Failed to save default role: {err}"));
                     }
                 }
             }

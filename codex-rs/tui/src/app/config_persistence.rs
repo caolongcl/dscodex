@@ -745,6 +745,12 @@ impl App {
         self.chat_widget.set_personality(personality);
     }
 
+    pub(super) fn on_update_role(&mut self, role: String) {
+        let role = (role != codex_protocol::roles::DEFAULT_ROLE_NAME).then_some(role);
+        self.config.role = role.clone();
+        self.chat_widget.set_role(role);
+    }
+
     pub(super) fn sync_tui_theme_selection(&mut self, name: String) {
         self.config.tui_theme = Some(name.clone());
         self.chat_widget.set_tui_theme(Some(name));
@@ -1227,6 +1233,7 @@ enabled = false
                 reasoning_effort: None,
                 collaboration_mode: None,
                 personality: None,
+                role: None,
                 message_history: None,
                 network_proxy: None,
                 rollout_path: Some(PathBuf::new()),

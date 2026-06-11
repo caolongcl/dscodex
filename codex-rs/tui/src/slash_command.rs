@@ -13,6 +13,7 @@ pub enum SlashCommand {
     // DO NOT ALPHA-SORT! Enum order is presentation order in the popup, so
     // more frequently used commands should be listed first.
     Model,
+    Role,
     Ide,
     Permissions,
     Keymap,
@@ -115,6 +116,7 @@ impl SlashCommand {
                 "include current selection, open files, and other context from your IDE"
             }
             SlashCommand::Personality => "choose a communication style for Codex",
+            SlashCommand::Role => "switch the agent's role (writer, researcher, custom...)",
             SlashCommand::Realtime => "toggle realtime voice mode (experimental)",
             SlashCommand::Settings => "configure realtime microphone/speaker",
             SlashCommand::Plan => "switch to Plan mode",
@@ -194,6 +196,7 @@ impl SlashCommand {
             | SlashCommand::Compact
             | SlashCommand::Model
             | SlashCommand::Personality
+            | SlashCommand::Role
             | SlashCommand::Permissions
             | SlashCommand::Keymap
             | SlashCommand::Vim

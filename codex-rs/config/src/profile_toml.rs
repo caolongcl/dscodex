@@ -39,6 +39,8 @@ pub struct ConfigProfile {
     /// Optional path to a JSON model catalog (applied on startup only).
     pub model_catalog_json: Option<AbsolutePathBuf>,
     pub personality: Option<Personality>,
+    /// Optional role (persona) name; see top-level `role`.
+    pub role: Option<String>,
     pub chatgpt_base_url: Option<String>,
     /// Optional path to a file containing model instructions.
     pub model_instructions_file: Option<AbsolutePathBuf>,

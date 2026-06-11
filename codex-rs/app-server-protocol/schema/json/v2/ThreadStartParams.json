@@ -259,6 +259,13 @@
         }
       ]
     },
+    "role": {
+      "description": "Role (persona) name for the thread; `default` selects the stock coding agent.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "sandbox": {
       "anyOf": [
         {

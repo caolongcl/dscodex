@@ -179,6 +179,7 @@ fn turn_context_item_filesystem_uses_workspace_roots_instead_of_cwd() {
         file_system_sandbox_policy: None,
         model: "gpt-5".to_string(),
         personality: None,
+        role: None,
         collaboration_mode: None,
         multi_agent_version: None,
         realtime_active: None,

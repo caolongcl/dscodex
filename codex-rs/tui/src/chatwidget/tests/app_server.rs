@@ -31,6 +31,7 @@ fn thread_settings_for_test(
                 },
             },
             personality: Some(Personality::Pragmatic),
+            role: None,
         },
     }
 }
@@ -54,6 +55,7 @@ fn configured_thread_session(thread_id: ThreadId) -> crate::session_state::Threa
         reasoning_effort: None,
         collaboration_mode: None,
         personality: None,
+        role: None,
         message_history: None,
         network_proxy: None,
         rollout_path: None,

@@ -91,6 +91,22 @@ impl App {
         self.send_thread_settings_update(app_server, params).await;
     }
 
+    pub(super) async fn sync_active_thread_role_setting(
+        &mut self,
+        app_server: &mut AppServerSession,
+        role: String,
+    ) {
+        let Some(thread_id) = self.active_thread_id else {
+            return;
+        };
+        let params = ThreadSettingsUpdateParams {
+            thread_id: thread_id.to_string(),
+            role: Some(role),
+            ..ThreadSettingsUpdateParams::default()
+        };
+        self.send_thread_settings_update(app_server, params).await;
+    }
+
     pub(super) async fn sync_override_turn_context_settings(
         &mut self,
         app_server: &mut AppServerSession,
@@ -185,6 +201,7 @@ fn apply_thread_settings_to_session(session: &mut ThreadSessionState, settings: 
     session.active_permission_profile = settings.active_permission_profile.clone().map(Into::into);
     session.set_cwd_retargeting_implicit_runtime_workspace_root(settings.cwd.clone());
     session.personality = settings.personality;
+    session.role = settings.role.clone();
     let mut collaboration_mode = settings.collaboration_mode.clone();
     collaboration_mode
         .settings
@@ -206,4 +223,5 @@ fn thread_settings_update_has_changes(params: &ThreadSettingsUpdateParams) -> bo
         || params.summary.is_some()
         || params.collaboration_mode.is_some()
         || params.personality.is_some()
+        || params.role.is_some()
 }

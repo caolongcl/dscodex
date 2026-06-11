@@ -350,6 +350,11 @@ pub struct ConfigToml {
     /// Optionally specify a personality for the model
     pub personality: Option<Personality>,
 
+    /// Optionally select a role (persona) for the agent. Accepts a built-in
+    /// role name (`default`, `writer`, `researcher`) or the stem of a file in
+    /// `$CODEX_HOME/roles/<name>.md`.
+    pub role: Option<String>,
+
     /// Optional explicit service tier request id for new turns (for example
     /// `default`, `priority`, or `flex`; legacy `fast` also works).
     pub service_tier: Option<String>,

@@ -61,6 +61,7 @@ struct ThreadSettingsBuildParams {
     summary: Option<ReasoningSummary>,
     collaboration_mode: Option<CollaborationMode>,
     personality: Option<Personality>,
+    role: Option<String>,
 }
 
 impl TurnRequestProcessor {
@@ -453,6 +454,7 @@ impl TurnRequestProcessor {
                     summary: params.summary,
                     collaboration_mode: params.collaboration_mode,
                     personality: params.personality,
+                    role: params.role,
                 },
             )
             .await?;
@@ -551,6 +553,7 @@ impl TurnRequestProcessor {
             summary,
             collaboration_mode,
             personality,
+            role,
         } = params;
 
         if sandbox_policy.is_some() && permissions.is_some() {
@@ -583,7 +586,8 @@ impl TurnRequestProcessor {
             || effort.is_some()
             || summary.is_some()
             || collaboration_mode.is_some()
-            || personality.is_some();
+            || personality.is_some()
+            || role.is_some();
 
         let runtime_workspace_roots =
             runtime_workspace_roots_request.map(resolve_runtime_workspace_roots);
@@ -683,6 +687,7 @@ impl TurnRequestProcessor {
             service_tier,
             collaboration_mode,
             personality,
+            role,
         })
     }
 
@@ -716,6 +721,7 @@ impl TurnRequestProcessor {
                     summary: params.summary,
                     collaboration_mode: params.collaboration_mode,
                     personality: params.personality,
+                    role: params.role,
                 },
             )
             .await?;

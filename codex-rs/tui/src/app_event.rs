@@ -671,6 +671,10 @@ pub(crate) enum AppEvent {
     /// Update the current personality in the running app and widget.
     UpdatePersonality(Personality),
 
+    /// Update the current role in the running app and widget. Carries the
+    /// role name; the reserved name `default` clears the role.
+    UpdateRole(String),
+
     /// Persist the selected model and reasoning effort to the appropriate config.
     PersistModelSelection {
         model: String,
@@ -680,6 +684,11 @@ pub(crate) enum AppEvent {
     /// Persist the selected personality to the appropriate config.
     PersistPersonalitySelection {
         personality: Personality,
+    },
+
+    /// Persist the selected role to the appropriate config.
+    PersistRoleSelection {
+        role: String,
     },
 
     /// Persist the selected service tier to the appropriate config.

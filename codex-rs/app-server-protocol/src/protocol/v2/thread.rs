@@ -136,6 +136,10 @@ pub struct ThreadStartParams {
     pub developer_instructions: Option<String>,
     #[ts(optional = nullable)]
     pub personality: Option<Personality>,
+    /// Role (persona) name for the thread; `default` selects the stock
+    /// coding agent.
+    #[ts(optional = nullable)]
+    pub role: Option<String>,
     #[ts(optional = nullable)]
     pub ephemeral: Option<bool>,
     #[ts(optional = nullable)]
@@ -274,6 +278,10 @@ pub struct ThreadSettingsUpdateParams {
     /// Override the personality for subsequent turns.
     #[ts(optional = nullable)]
     pub personality: Option<Personality>,
+    /// Override the role for subsequent turns; the reserved name `default`
+    /// clears the role.
+    #[ts(optional = nullable)]
+    pub role: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
@@ -297,6 +305,8 @@ pub struct ThreadSettings {
     pub summary: Option<ReasoningSummary>,
     pub collaboration_mode: CollaborationMode,
     pub personality: Option<Personality>,
+    /// Active role name, when a role other than the default is set.
+    pub role: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, JsonSchema, TS)]
@@ -389,6 +399,9 @@ pub struct ThreadResumeParams {
     pub developer_instructions: Option<String>,
     #[ts(optional = nullable)]
     pub personality: Option<Personality>,
+    /// Role (persona) name for the resumed thread.
+    #[ts(optional = nullable)]
+    pub role: Option<String>,
     /// When true, return only thread metadata and live-resume state without
     /// populating `thread.turns`. This is useful when the client plans to call
     /// `thread/turns/list` immediately after resuming.

@@ -1183,6 +1183,13 @@
         }
       ]
     },
+    "role": {
+      "description": "Role (persona) name for the resumed thread.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "sandbox": {
       "anyOf": [
         {

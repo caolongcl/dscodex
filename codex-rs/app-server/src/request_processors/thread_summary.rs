@@ -207,6 +207,7 @@ pub(crate) fn thread_settings_from_config_snapshot(
         summary: config_snapshot.reasoning_summary,
         collaboration_mode: config_snapshot.collaboration_mode.clone(),
         personality: config_snapshot.personality,
+        role: config_snapshot.role.clone(),
     }
 }
 
@@ -225,6 +226,7 @@ pub(crate) fn thread_settings_from_core_snapshot(
         reasoning_effort,
         reasoning_summary,
         personality,
+        role,
         collaboration_mode,
     } = snapshot;
     let sandbox_policy = thread_response_sandbox_policy(&permission_profile, cwd.as_path());
@@ -243,6 +245,7 @@ pub(crate) fn thread_settings_from_core_snapshot(
         summary: reasoning_summary,
         collaboration_mode,
         personality,
+        role,
     }
 }
 

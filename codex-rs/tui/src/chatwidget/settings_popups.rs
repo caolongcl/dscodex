@@ -90,6 +90,57 @@ impl ChatWidget {
         });
     }
 
+    pub(crate) fn open_role_popup(&mut self) {
+        if !self.is_session_configured() {
+            self.add_info_message(
+                "Role selection is disabled until startup completes.".to_string(),
+                /*hint*/ None,
+            );
+            return;
+        }
+        let current_role = self
+            .config
+            .role
+            .clone()
+            .unwrap_or_else(|| codex_protocol::roles::DEFAULT_ROLE_NAME.to_string());
+        let roles = codex_protocol::roles::list_roles(&self.config.codex_home);
+
+        let items: Vec<SelectionItem> = roles
+            .into_iter()
+            .map(|role| {
+                let is_current = current_role == role.name;
+                let role_name = role.name.clone();
+                let actions: Vec<SelectionAction> = vec![Box::new(move |tx| {
+                    tx.send(AppEvent::UpdateRole(role_name.clone()));
+                    tx.send(AppEvent::PersistRoleSelection {
+                        role: role_name.clone(),
+                    });
+                })];
+                SelectionItem {
+                    name: role.name,
+                    description: Some(role.description),
+                    is_current,
+                    actions,
+                    dismiss_on_select: true,
+                    ..Default::default()
+                }
+            })
+            .collect();
+
+        let mut header = ColumnRenderable::new();
+        header.push(Line::from("Select Role".bold()));
+        header.push(Line::from(
+            "Reframe the agent's persona. Add custom roles as $CODEX_HOME/roles/<name>.md.".dim(),
+        ));
+
+        self.bottom_pane.show_selection_view(SelectionViewParams {
+            header: Box::new(header),
+            footer_hint: Some(standard_popup_hint_line()),
+            items,
+            ..Default::default()
+        });
+    }
+
     pub(crate) fn open_realtime_audio_popup(&mut self) {
         let items = [
             RealtimeAudioDeviceKind::Microphone,

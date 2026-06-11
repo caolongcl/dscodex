@@ -7,6 +7,7 @@ use crate::context::PersonalitySpecInstructions;
 use crate::context::RealtimeEndInstructions;
 use crate::context::RealtimeStartInstructions;
 use crate::context::RealtimeStartWithInstructions;
+use crate::context::RoleInstructions;
 use crate::session::PreviousTurnSettings;
 use crate::session::turn_context::TurnContext;
 use crate::shell::Shell;
@@ -152,6 +153,21 @@ fn build_personality_update_item(
     }
 }
 
+fn build_role_update_item(
+    previous: Option<&TurnContextItem>,
+    next: &TurnContext,
+) -> Option<String> {
+    let previous = previous?;
+    let next_role = next.role.as_ref()?;
+    if previous.role.as_deref() == Some(next_role.name.as_str()) {
+        return None;
+    }
+    if next_role.spec.trim().is_empty() {
+        return None;
+    }
+    Some(RoleInstructions::new(next_role.spec.clone()).render())
+}
+
 pub(crate) fn personality_message_for(
     model_info: &ModelInfo,
     personality: Personality,
@@ -227,6 +243,7 @@ pub(crate) fn build_settings_update_items(
         build_collaboration_mode_update_item(previous, next),
         build_realtime_update_item(previous, previous_turn_settings, next),
         build_personality_update_item(previous, next, personality_feature_enabled),
+        build_role_update_item(previous, next),
     ]
     .into_iter()
     .flatten()

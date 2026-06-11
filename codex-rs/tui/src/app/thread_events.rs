@@ -375,6 +375,7 @@ mod tests {
             reasoning_effort: None,
             collaboration_mode: None,
             personality: None,
+            role: None,
             message_history: None,
             network_proxy: None,
             rollout_path: Some(PathBuf::new()),

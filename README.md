@@ -68,6 +68,18 @@ You can also use Codex with an API key, but this requires [additional setup](htt
 
 ---
 
+## Roles
+
+This fork adds a role system: switch Codex from a coding agent to a writer, researcher, or any persona you define — while keeping its tools, sandboxing, and approval rules intact.
+
+```
+/role            # pick writer / researcher / default, or your own
+```
+
+Add custom roles as markdown files under `~/.codex/roles/<name>.md`, set a default with `role = "writer"` in `config.toml`, or bundle a role with a model in a profile. See the [roles guide](docs/roles.md).
+
+---
+
 ## DeepSeek Integration
 
 This fork ships a built-in `codex-deepseek-proxy` that translates OpenAI Responses API ↔ DeepSeek Chat Completions in-process — zero extra dependencies, no sidecar process to manage.
@@ -155,6 +167,7 @@ See [`docs/install.md`](docs/install.md) for detailed build prerequisites and pl
 ## Docs
 
 - [**Codex Documentation**](https://developers.openai.com/codex)
+- [**Roles guide**](docs/roles.md)
 - [**DeepSeek integration guide**](codex-rs/docs/deepseek.md)
 - [**Third-party model providers**](codex-rs/docs/model-providers.md)
 - [**Contributing**](./docs/contributing.md)

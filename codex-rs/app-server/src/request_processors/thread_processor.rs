@@ -839,6 +839,7 @@ impl ThreadRequestProcessor {
             mock_experimental_field: _mock_experimental_field,
             experimental_raw_events,
             personality,
+            role,
             ephemeral,
             session_start_source,
             thread_source,
@@ -864,6 +865,7 @@ impl ThreadRequestProcessor {
             base_instructions,
             developer_instructions,
             personality,
+            role,
         );
         typesafe_overrides.ephemeral = ephemeral;
         let listener_task_context = ListenerTaskContext {
@@ -1236,6 +1238,7 @@ impl ThreadRequestProcessor {
         base_instructions: Option<String>,
         developer_instructions: Option<String>,
         personality: Option<Personality>,
+        role: Option<String>,
     ) -> ConfigOverrides {
         ConfigOverrides {
             model,
@@ -1254,6 +1257,7 @@ impl ThreadRequestProcessor {
             base_instructions,
             developer_instructions,
             personality,
+            role,
             ..Default::default()
         }
     }
@@ -2474,6 +2478,7 @@ impl ThreadRequestProcessor {
             base_instructions,
             developer_instructions,
             personality,
+            role,
             exclude_turns,
             initial_turns_page,
         } = params;
@@ -2515,6 +2520,7 @@ impl ThreadRequestProcessor {
             base_instructions,
             developer_instructions,
             personality,
+            role,
         );
         self.load_and_apply_persisted_resume_metadata(
             &thread_history,
@@ -3240,6 +3246,7 @@ impl ThreadRequestProcessor {
             base_instructions,
             developer_instructions,
             /*personality*/ None,
+            /*role*/ None,
         );
         typesafe_overrides.ephemeral = ephemeral.then_some(true);
         // Derive a Config using the same logic as new conversation, honoring overrides if provided.
