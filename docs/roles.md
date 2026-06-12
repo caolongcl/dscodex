@@ -53,18 +53,15 @@ Set a default role in `config.toml`:
 role = "writer"
 ```
 
-Roles combine well with profiles, so one profile can bundle a persona with a model and other settings:
+Roles combine well with profiles, so one profile can bundle a persona with a model and other settings. Profiles are per-file (`$CODEX_HOME/<name>.config.toml`, top-level keys; the legacy `[profiles.<name>]` table syntax is rejected):
 
 ```toml
-[profiles.research]
+# ~/.codex/research.config.toml
 role = "researcher"
 model = "deepseek-reasoner"
-
-[profiles.poet]
-role = "poet"
 ```
 
-Then launch with `codex --profile research`.
+Then launch with `codex --profile research`. The role name is the file stem of the role markdown, so `~/.codex/roles/ruyi.md` is selected with `role = "ruyi"`.
 
 ## How it works (and limits)
 
