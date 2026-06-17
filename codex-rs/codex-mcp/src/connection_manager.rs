@@ -42,6 +42,7 @@ use anyhow::anyhow;
 use async_channel::Sender;
 use codex_config::Constrained;
 use codex_config::McpServerTransportConfig;
+use codex_config::types::AuthKeyringBackendKind;
 use codex_config::types::OAuthCredentialsStoreMode;
 use codex_login::CodexAuth;
 use codex_protocol::mcp::CallToolResult;
@@ -119,6 +120,7 @@ impl McpConnectionManager {
     pub async fn new(
         mcp_servers: &HashMap<String, EffectiveMcpServer>,
         store_mode: OAuthCredentialsStoreMode,
+        keyring_backend_kind: AuthKeyringBackendKind,
         auth_entries: HashMap<String, McpAuthStatusEntry>,
         approval_policy: &Constrained<AskForApproval>,
         submit_id: String,
@@ -198,6 +200,7 @@ impl McpConnectionManager {
                 server_name.clone(),
                 server,
                 store_mode,
+                keyring_backend_kind,
                 cancel_token.clone(),
                 tx_event.clone(),
                 elicitation_requests.clone(),
@@ -348,22 +351,16 @@ impl McpConnectionManager {
         !self.clients.is_empty()
     }
 
-    /// Drain all MCP clients from this manager and return a future that stops
-    /// them and terminates their stdio server processes.
-    pub fn begin_shutdown(&mut self) -> impl std::future::Future<Output = ()> + Send + 'static {
-        self.startup_cancellation_token.cancel();
-        let clients = std::mem::take(&mut self.clients);
-        self.server_metadata.clear();
-        async move {
-            for client in clients.into_values() {
-                client.shutdown().await;
-            }
-        }
+    pub(crate) fn contains_server(&self, server_name: &str) -> bool {
+        self.clients.contains_key(server_name)
     }
 
     /// Stop all MCP clients owned by this manager and terminate stdio server processes.
-    pub async fn shutdown(&mut self) {
-        self.begin_shutdown().await;
+    pub async fn shutdown(&self) {
+        self.startup_cancellation_token.cancel();
+        for client in self.clients.values() {
+            client.shutdown().await;
+        }
     }
 
     pub fn server_origin(&self, server_name: &str) -> Option<&str> {
@@ -382,6 +379,22 @@ impl McpConnectionManager {
     pub fn plugin_id_for_mcp_server_name(&self, server_name: &str) -> Option<&str> {
         self.tool_plugin_provenance
             .plugin_id_for_mcp_server_name(server_name)
+    }
+
+    pub fn is_selected_plugin_mcp_server(&self, server_name: &str) -> bool {
+        self.tool_plugin_provenance
+            .is_selected_plugin_mcp_server(server_name)
+    }
+
+    pub fn tool_approval_mode(
+        &self,
+        server_name: &str,
+        tool_name: &str,
+    ) -> codex_config::AppToolApproval {
+        self.server_metadata
+            .get(server_name)
+            .map(|metadata| metadata.tool_approval_mode(tool_name))
+            .unwrap_or_default()
     }
 
     pub fn is_host_owned_codex_apps_server(&self, server_name: &str) -> bool {
