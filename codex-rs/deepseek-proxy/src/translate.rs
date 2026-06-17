@@ -68,11 +68,10 @@ pub fn responses_to_chat(req: ResponsesRequest) -> ChatRequest {
     //    `reasoning_content` on that message.
     match req.input {
         None => {}
-        Some(Input::Text(text)) => {
-            if !text.is_empty() {
-                messages.push(ChatMessage::user(text));
-            }
+        Some(Input::Text(text)) if !text.is_empty() => {
+            messages.push(ChatMessage::user(text));
         }
+        Some(Input::Text(_)) => {}
         Some(Input::Items(items)) => {
             for item in items {
                 translate_input_item(
