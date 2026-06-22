@@ -62,6 +62,8 @@ use codex_api::build_session_headers;
 use codex_api::create_text_param_for_request;
 use codex_api::response_create_client_metadata;
 use codex_app_server_protocol::AuthMode;
+use codex_client::HttpTransport;
+use codex_deepseek_proxy::DeepSeekTransport;
 use codex_login::AuthManager;
 use codex_login::CodexAuth;
 use codex_login::RefreshTokenError;
@@ -497,7 +499,7 @@ impl ModelClient {
             return Ok(Vec::new());
         }
         let client_setup = self.current_client_setup().await?;
-        let transport = ReqwestTransport::new(build_reqwest_client());
+        let transport = model_transport(self.state.provider.info());
         let request_telemetry = Self::build_request_telemetry(
             session_telemetry,
             AuthRequestTelemetryContext::new(
@@ -597,7 +599,7 @@ impl ModelClient {
         sideband_headers.extend(sideband_websocket_auth_headers(
             client_setup.api_auth.as_ref(),
         ));
-        let transport = ReqwestTransport::new(build_reqwest_client());
+        let transport = model_transport(self.state.provider.info());
         let api_provider = api_provider_override.unwrap_or(client_setup.api_provider);
         let response = ApiRealtimeCallClient::new(transport, api_provider, client_setup.api_auth)
             .create_with_session_architecture_and_headers(
@@ -633,7 +635,7 @@ impl ModelClient {
         }
 
         let client_setup = self.current_client_setup().await?;
-        let transport = ReqwestTransport::new(build_reqwest_client());
+        let transport = model_transport(self.state.provider.info());
         let request_telemetry = Self::build_request_telemetry(
             session_telemetry,
             AuthRequestTelemetryContext::new(
@@ -1278,7 +1280,7 @@ impl ModelClientSession {
         let mut pending_retry = PendingUnauthorizedRetry::default();
         loop {
             let client_setup = self.client.current_client_setup().await?;
-            let transport = ReqwestTransport::new(build_reqwest_client());
+            let transport = model_transport(self.client.state.provider.info());
             let request_auth_context = AuthRequestTelemetryContext::new(
                 client_setup.auth.as_ref().map(CodexAuth::auth_mode),
                 client_setup.api_auth.as_ref(),
@@ -1701,6 +1703,58 @@ fn stamp_ws_stream_request_start_ms(request: &mut ResponsesWsRequest) {
             X_CODEX_WS_STREAM_REQUEST_START_MS_CLIENT_METADATA_KEY.to_string(),
             crate::turn_timing::now_unix_timestamp_ms().to_string(),
         );
+}
+
+/// HTTP transport for a model-provider request: the in-process DeepSeek
+/// translator when the provider talks directly to DeepSeek's API, else the
+/// standard reqwest transport. The trait's `-> impl Future` isn't dyn-safe, so
+/// this enum dispatches instead of `Box<dyn HttpTransport>`.
+enum ModelTransport {
+    Reqwest(ReqwestTransport),
+    DeepSeek(DeepSeekTransport),
+}
+
+impl HttpTransport for ModelTransport {
+    async fn execute(
+        &self,
+        req: codex_client::Request,
+    ) -> std::result::Result<codex_client::Response, TransportError> {
+        match self {
+            Self::Reqwest(t) => t.execute(req).await,
+            Self::DeepSeek(t) => t.execute(req).await,
+        }
+    }
+
+    async fn stream(
+        &self,
+        req: codex_client::Request,
+    ) -> std::result::Result<codex_client::StreamResponse, TransportError> {
+        match self {
+            Self::Reqwest(t) => t.stream(req).await,
+            Self::DeepSeek(t) => t.stream(req).await,
+        }
+    }
+}
+
+/// Translate Responses ⇄ DeepSeek Chat Completions in-process when the provider
+/// points directly at DeepSeek's API; otherwise use the standard reqwest
+/// transport (e.g. the user pointed `base_url` at their own Responses proxy).
+fn model_transport(info: &ModelProviderInfo) -> ModelTransport {
+    match deepseek_upstream(info) {
+        Some(base_url) => ModelTransport::DeepSeek(DeepSeekTransport::new(base_url)),
+        None => ModelTransport::Reqwest(ReqwestTransport::new(build_reqwest_client())),
+    }
+}
+
+/// `Some(base_url)` when the provider talks directly to DeepSeek's API (so the
+/// in-process translation applies), else `None`.
+fn deepseek_upstream(info: &ModelProviderInfo) -> Option<&str> {
+    let base_url = info.base_url.as_deref()?;
+    let host = reqwest::Url::parse(base_url)
+        .ok()?
+        .host_str()?
+        .to_ascii_lowercase();
+    (host == "api.deepseek.com").then_some(base_url)
 }
 
 /// Builds the extra headers attached to Responses API requests.

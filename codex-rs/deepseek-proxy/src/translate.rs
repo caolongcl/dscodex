@@ -131,23 +131,26 @@ pub fn responses_to_chat(req: ResponsesRequest) -> (ChatRequest, NamespaceMap) {
         None
     };
 
-    (ChatRequest {
-        model: req.model,
-        messages,
-        temperature,
-        top_p,
-        max_tokens: req.max_output_tokens,
-        stream,
-        tools,
-        tool_choice,
-        parallel_tool_calls: req.parallel_tool_calls,
-        reasoning_effort,
-        // Only emit the switch for the explicit off sentinel (→ disabled);
-        // otherwise omit it and let DeepSeek's default-on reasoning stand, so
-        // normal turns and the existing translation tests are unaffected.
-        thinking: thinking_off.then(|| ThinkingConfig::new(false)),
-        stream_options,
-    }, namespace_map)
+    (
+        ChatRequest {
+            model: req.model,
+            messages,
+            temperature,
+            top_p,
+            max_tokens: req.max_output_tokens,
+            stream,
+            tools,
+            tool_choice,
+            parallel_tool_calls: req.parallel_tool_calls,
+            reasoning_effort,
+            // Only emit the switch for the explicit off sentinel (→ disabled);
+            // otherwise omit it and let DeepSeek's default-on reasoning stand, so
+            // normal turns and the existing translation tests are unaffected.
+            thinking: thinking_off.then(|| ThinkingConfig::new(false)),
+            stream_options,
+        },
+        namespace_map,
+    )
 }
 
 /// DeepSeek's `/chat/completions` accepts `reasoning_effort` ∈ {high, max}.
@@ -522,7 +525,10 @@ mod tests {
             .into_iter()
             .map(|t| t.function.name)
             .collect();
-        assert_eq!(names, ["mcp__memory__create_entities", "mcp__memory__read_graph"]);
+        assert_eq!(
+            names,
+            ["mcp__memory__create_entities", "mcp__memory__read_graph"]
+        );
         // …and the reverse map rebuilds the {namespace, name} codex routes by.
         assert_eq!(
             ns.get("mcp__memory__create_entities"),

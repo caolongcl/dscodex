@@ -699,19 +699,6 @@ async fn run_exec_session(args: ExecRunArgs) -> anyhow::Result<()> {
             .map_err(|e| anyhow::anyhow!("OSS setup failed: {e}"))?;
     }
 
-    // Auto-spawn the in-tree codex-deepseek-proxy when the active provider
-    // is "deepseek" and its base_url points at a loopback address. Skips if
-    // the user pointed base_url elsewhere or the port is already bound.
-    if config.model_provider_id == codex_model_provider_info::DEEPSEEK_PROVIDER_ID
-        && let Some(base_url) = config.model_provider.base_url.as_deref()
-    {
-        let _ = codex_deepseek_proxy::ensure_running(
-            base_url,
-            codex_deepseek_proxy::DEFAULT_UPSTREAM_URL,
-        )
-        .await;
-    }
-
     let default_cwd = config.cwd.to_path_buf();
     let default_approval_policy = config.permissions.approval_policy.value();
     let default_effort = config.model_reasoning_effort.clone();

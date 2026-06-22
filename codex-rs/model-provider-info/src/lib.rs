@@ -411,10 +411,10 @@ pub const DEFAULT_OLLAMA_PORT: u16 = 11434;
 pub const LMSTUDIO_OSS_PROVIDER_ID: &str = "lmstudio";
 pub const OLLAMA_OSS_PROVIDER_ID: &str = "ollama";
 
-/// In-tree DeepSeek translation proxy auto-spawned by Codex when this
-/// provider is selected; serves on a loopback port.
+/// Built-in provider id for DeepSeek. When selected, Codex talks to DeepSeek's
+/// Chat Completions API directly via the in-process `codex-deepseek-proxy`
+/// transport (Responses ⇄ Chat translation) — no separate proxy process.
 pub const DEEPSEEK_PROVIDER_ID: &str = "deepseek";
-pub const DEFAULT_DEEPSEEK_PROXY_PORT: u16 = 38440;
 
 /// Built-in default provider list.
 pub fn built_in_model_providers(
@@ -478,12 +478,12 @@ pub fn merge_configured_model_providers(
             }
         } else if key == DEEPSEEK_PROVIDER_ID {
             // The built-in `deepseek` entry is just a sensible default
-            // (base_url at the loopback port the auto-spawned proxy uses,
-            // `DEEPSEEK_API_KEY` env, Responses wire api). Any explicit
-            // `[model_providers.deepseek]` in config.toml fully replaces it
-            // — so users can swap in `auth.command`, point base_url at an
-            // external proxy, etc. Auto-spawn keys off whether the resulting
-            // base_url is a loopback URL.
+            // (base_url at DeepSeek's API, `DEEPSEEK_API_KEY` env, Responses
+            // wire api). Any explicit `[model_providers.deepseek]` in
+            // config.toml fully replaces it — so users can swap in
+            // `auth.command`, or point base_url at their own Responses-speaking
+            // proxy (which then uses the plain transport; the in-process
+            // DeepSeek translation only kicks in for base_url api.deepseek.com).
             model_providers.insert(key, provider);
         } else {
             model_providers.entry(key).or_insert(provider);
@@ -512,17 +512,15 @@ pub fn create_oss_provider(default_provider_port: u16, wire_api: WireApi) -> Mod
     create_oss_provider_with_base_url(&codex_oss_base_url, wire_api)
 }
 
-/// Built-in DeepSeek provider. Talks to the in-tree
-/// `codex-deepseek-proxy`, which Codex auto-spawns on this port when this
-/// provider is selected. Users can override `base_url` in `config.toml` to
-/// point at an external proxy (Moon Bridge, LiteLLM …); when the override
-/// is non-loopback Codex skips auto-spawn.
+/// Built-in DeepSeek provider. `base_url` points at DeepSeek's API; Codex
+/// routes it through the in-process `codex-deepseek-proxy` transport, which
+/// translates Responses ⇄ DeepSeek Chat Completions. Users can override
+/// `base_url` in `config.toml` to point at their own Responses-speaking proxy
+/// (Moon Bridge, LiteLLM …), which is then used with the plain transport.
 pub fn create_deepseek_provider() -> ModelProviderInfo {
     ModelProviderInfo {
         name: "DeepSeek".into(),
-        base_url: Some(format!(
-            "http://127.0.0.1:{DEFAULT_DEEPSEEK_PROXY_PORT}/v1"
-        )),
+        base_url: Some("https://api.deepseek.com/v1".to_string()),
         env_key: Some("DEEPSEEK_API_KEY".to_string()),
         env_key_instructions: Some(
             "Create a DeepSeek API key at https://platform.deepseek.com/api_keys and export it as DEEPSEEK_API_KEY."

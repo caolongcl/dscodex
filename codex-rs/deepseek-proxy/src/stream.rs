@@ -22,8 +22,8 @@
 use std::collections::BTreeMap;
 use std::pin::Pin;
 
-use async_stream::try_stream;
-use axum::response::sse::Event as SseEvent;
+use async_stream::stream;
+use bytes::Bytes;
 use eventsource_stream::Eventsource;
 use futures::Stream;
 use futures::StreamExt;
@@ -695,28 +695,28 @@ impl TranslatedEvent {
         Self { event, data }
     }
 
-    pub fn into_axum(self) -> SseEvent {
-        SseEvent::default()
-            .event(self.event)
-            .data(self.data.to_string())
+    /// SSE wire framing (`event: <name>\ndata: <json>\n\n`). The JSON is compact
+    /// (no embedded newlines), so a single `data:` line is valid — and this is
+    /// exactly what codex's own eventsource parser reads back from the transport.
+    pub fn into_sse_bytes(self) -> Bytes {
+        Bytes::from(format!("event: {}\ndata: {}\n\n", self.event, self.data))
     }
 }
 
-/// Turn an upstream `reqwest::Response` whose body is a chat-completions SSE
-/// stream into an async stream of Responses SSE events ready for axum's
-/// `Sse::new(stream)`. The stream never yields an error; transport errors are
-/// folded into a terminal `response.failed` event so Codex always sees a
-/// clean SSE close.
-pub fn translate_response_stream(
+/// Translate an upstream chat-completions SSE response into the Responses-API
+/// SSE **wire bytes** Codex's transport layer feeds back to its own parser. The
+/// stream never yields an error; transport errors fold into a terminal
+/// `response.failed` event so Codex always sees a clean SSE close.
+pub fn translate_chat_sse(
     upstream: reqwest::Response,
     model: String,
     created_at: i64,
     namespace_map: NamespaceMap,
-) -> Pin<Box<dyn Stream<Item = Result<SseEvent, std::convert::Infallible>> + Send>> {
-    Box::pin(try_stream! {
+) -> Pin<Box<dyn Stream<Item = Bytes> + Send>> {
+    Box::pin(stream! {
         let mut state = StreamState::new(model, created_at, namespace_map);
         for ev in state.lifecycle_open() {
-            yield ev.into_axum();
+            yield ev.into_sse_bytes();
         }
 
         let mut sse = upstream.bytes_stream().eventsource();
@@ -725,18 +725,17 @@ pub fn translate_response_stream(
         while let Some(item) = sse.next().await {
             match item {
                 Ok(ev) => {
-                    let data = ev.data;
-                    if data == SSE_DONE {
+                    if ev.data == SSE_DONE {
                         break;
                     }
-                    match serde_json::from_str::<ChatCompletionChunk>(&data) {
+                    match serde_json::from_str::<ChatCompletionChunk>(&ev.data) {
                         Ok(chunk) => {
                             for translated in state.on_chunk(chunk) {
-                                yield translated.into_axum();
+                                yield translated.into_sse_bytes();
                             }
                         }
                         Err(err) => {
-                            warn!(error = %err, raw = %data, "failed to parse upstream chunk");
+                            warn!(error = %err, raw = %ev.data, "failed to parse upstream chunk");
                         }
                     }
                 }
@@ -752,13 +751,44 @@ pub fn translate_response_stream(
                 "message": msg,
                 "type": "upstream_error",
             });
-            yield state.lifecycle_fail(&error).into_axum();
+            yield state.lifecycle_fail(&error).into_sse_bytes();
         } else {
             for ev in state.lifecycle_close() {
-                yield ev.into_axum();
+                yield ev.into_sse_bytes();
             }
         }
     })
+}
+
+/// Drive the same translation to completion and return the final Responses
+/// `response` object (the `response.completed` snapshot) for the non-streaming
+/// `execute` path. We always stream upstream and accumulate, so there is only
+/// one translation path to maintain. Upstream parse/transport errors yield
+/// whatever snapshot accumulated (Codex surfaces the empty/partial result).
+pub async fn collect_final_response(
+    upstream: reqwest::Response,
+    model: String,
+    created_at: i64,
+    namespace_map: NamespaceMap,
+) -> Value {
+    let mut state = StreamState::new(model, created_at, namespace_map);
+    let _ = state.lifecycle_open();
+    let mut sse = upstream.bytes_stream().eventsource();
+    while let Some(Ok(ev)) = sse.next().await {
+        if ev.data == SSE_DONE {
+            break;
+        }
+        if let Ok(chunk) = serde_json::from_str::<ChatCompletionChunk>(&ev.data) {
+            let _ = state.on_chunk(chunk);
+        }
+    }
+    state
+        .lifecycle_close()
+        .into_iter()
+        .rev()
+        .find(|e| e.event == "response.completed")
+        .and_then(|e| e.data.get("response").cloned())
+        .unwrap_or_else(|| json!({}))
 }
 
 #[cfg(test)]
@@ -770,7 +800,11 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn make_state() -> StreamState {
-        let mut s = StreamState::new("deepseek-v4-flash".to_string(), 1_700_000_000, NamespaceMap::new());
+        let mut s = StreamState::new(
+            "deepseek-v4-flash".to_string(),
+            1_700_000_000,
+            NamespaceMap::new(),
+        );
         // Pin the ids so snapshots are stable.
         s.response_id = "resp_test".to_string();
         s.text_item_id = "msg_test".to_string();

@@ -1222,20 +1222,6 @@ pub async fn run_main(
         ensure_oss_provider_ready(provider_id, &config).await?;
     }
 
-    // Auto-spawn the in-tree codex-deepseek-proxy when the active provider
-    // is "deepseek" and its base_url points at a loopback address. Skips if
-    // the user pointed base_url at an external proxy or if the port is
-    // already bound (assume an existing proxy is serving).
-    if config.model_provider_id == codex_model_provider_info::DEEPSEEK_PROVIDER_ID
-        && let Some(base_url) = config.model_provider.base_url.as_deref()
-    {
-        let _ = codex_deepseek_proxy::ensure_running(
-            base_url,
-            codex_deepseek_proxy::DEFAULT_UPSTREAM_URL,
-        )
-        .await;
-    }
-
     let otel_logger_layer = otel.as_ref().and_then(|o| o.logger_layer());
 
     let otel_tracing_layer = otel.as_ref().and_then(|o| o.tracing_layer());

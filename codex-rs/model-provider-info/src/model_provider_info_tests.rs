@@ -467,7 +467,7 @@ refresh_interval_ms = 0
 }
 
 #[test]
-fn deepseek_built_in_provider_is_registered_with_loopback_base_url() {
+fn deepseek_built_in_provider_points_at_deepseek_api() {
     let providers = built_in_model_providers(/*openai_base_url*/ None);
     let deepseek = providers
         .get(DEEPSEEK_PROVIDER_ID)
@@ -475,7 +475,7 @@ fn deepseek_built_in_provider_is_registered_with_loopback_base_url() {
     assert_eq!(deepseek.name, "DeepSeek");
     assert_eq!(
         deepseek.base_url.as_deref(),
-        Some(format!("http://127.0.0.1:{DEFAULT_DEEPSEEK_PROXY_PORT}/v1").as_str())
+        Some("https://api.deepseek.com/v1")
     );
     assert_eq!(deepseek.env_key.as_deref(), Some("DEEPSEEK_API_KEY"));
     assert_eq!(deepseek.wire_api, WireApi::Responses);
@@ -531,6 +531,6 @@ fn deepseek_no_user_config_keeps_built_in_defaults() {
     let deepseek = merged.get(DEEPSEEK_PROVIDER_ID).unwrap();
     assert_eq!(
         deepseek.base_url.as_deref(),
-        Some(format!("http://127.0.0.1:{DEFAULT_DEEPSEEK_PROXY_PORT}/v1").as_str())
+        Some("https://api.deepseek.com/v1")
     );
 }
