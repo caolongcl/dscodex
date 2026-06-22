@@ -84,7 +84,7 @@ Add custom roles as markdown files under `~/.codex/roles/<name>.md`, set a defau
 
 This fork ships a built-in `codex-deepseek-proxy` that translates OpenAI Responses API ↔ DeepSeek Chat Completions in-process — zero extra dependencies, no sidecar process to manage.
 
-### Quick start (auto-spawn)
+### Quick start
 
 1. **Get a DeepSeek API key** from [platform.deepseek.com](https://platform.deepseek.com).
 
@@ -110,7 +110,7 @@ export DEEPSEEK_API_KEY=sk-...
 codex
 ```
 
-Codex auto-spawns the proxy on `127.0.0.1:38440`. Look for `INFO auto-spawned codex-deepseek-proxy` on stderr.
+That's it — Codex translates Responses ↔ DeepSeek Chat Completions **in-process** and talks straight to `api.deepseek.com`. No proxy process, no local port. (The translation lives in the `codex-deepseek-proxy` crate as an `HttpTransport`; `core` selects it when the provider `base_url` is `api.deepseek.com`.)
 
 ### Supported features
 
