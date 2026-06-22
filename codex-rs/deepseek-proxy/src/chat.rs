@@ -33,6 +33,13 @@ pub struct ChatRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_effort: Option<String>,
 
+    /// DeepSeek V4 thinking-mode switch (`{"type":"enabled"|"disabled"}`). V4 is
+    /// a unified model whose reasoning is ON by default, so turning thinking
+    /// *off* requires sending `disabled` explicitly. Depth is carried separately
+    /// by `reasoning_effort`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<ThinkingConfig>,
+
     /// Required to get a final `usage` chunk in the SSE stream per the
     /// OpenAI Chat Completions spec. DeepSeek follows the same convention.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -42,6 +49,22 @@ pub struct ChatRequest {
 #[derive(Debug, Clone, Serialize)]
 pub struct StreamOptions {
     pub include_usage: bool,
+}
+
+/// DeepSeek's thinking switch; serialises to `{"type":"enabled"}` /
+/// `{"type":"disabled"}`.
+#[derive(Debug, Clone, Serialize)]
+pub struct ThinkingConfig {
+    #[serde(rename = "type")]
+    pub mode: String,
+}
+
+impl ThinkingConfig {
+    pub fn new(enabled: bool) -> Self {
+        Self {
+            mode: if enabled { "enabled" } else { "disabled" }.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

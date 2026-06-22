@@ -112,7 +112,7 @@ async fn responses_handler(
     let req: ResponsesRequest = serde_json::from_slice(&body)
         .map_err(|e| ErrorResponse::bad_request(format!("invalid Responses request body: {e}")))?;
 
-    let chat_req = responses_to_chat(req);
+    let (chat_req, namespace_map) = responses_to_chat(req);
     let model_for_stream = chat_req.model.clone();
     let want_stream = chat_req.stream;
     let chat_body = serde_json::to_vec(&chat_req)
@@ -163,7 +163,7 @@ async fn responses_handler(
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or_default();
-    let stream = translate_response_stream(upstream_resp, model_for_stream, created_at);
+    let stream = translate_response_stream(upstream_resp, model_for_stream, created_at, namespace_map);
     Ok(Sse::new(stream).into_response())
 }
 

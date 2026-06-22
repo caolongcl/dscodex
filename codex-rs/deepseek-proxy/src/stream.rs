@@ -44,6 +44,7 @@ use crate::responses::ReasoningItem;
 use crate::responses::ReasoningSummaryPart;
 use crate::responses::ResponseSnapshot;
 use crate::responses::Usage;
+use crate::translate::NamespaceMap;
 
 const ASSISTANT_ROLE: &str = "assistant";
 const OUTPUT_TEXT_TYPE: &str = "output_text";
@@ -82,6 +83,9 @@ pub struct StreamState {
     tool_calls: BTreeMap<u32, ToolCallState>,
     /// Final usage block from the last chunk that included it.
     final_usage: Option<ChatUsage>,
+    /// Flattened-MCP-tool name (`<ns>__<tool>`) → (namespace, tool), for
+    /// rebuilding the {name, namespace} pair codex routes namespace tools by.
+    namespace_map: NamespaceMap,
 }
 
 struct ToolCallState {
@@ -89,12 +93,15 @@ struct ToolCallState {
     item_id: String,
     call_id: String,
     name: String,
+    /// `Some` when this call resolved to a flattened MCP namespace tool.
+    namespace: Option<String>,
     arguments: String,
 }
 
 impl StreamState {
-    pub fn new(model: String, created_at: i64) -> Self {
+    pub fn new(model: String, created_at: i64, namespace_map: NamespaceMap) -> Self {
         Self {
+            namespace_map,
             response_id: format!("resp_{}", uuid::Uuid::new_v4().simple()),
             text_item_id: format!("msg_{}", uuid::Uuid::new_v4().simple()),
             reasoning_item_id: format!("rs_{}", uuid::Uuid::new_v4().simple()),
@@ -145,6 +152,7 @@ impl StreamState {
                         status: "completed".to_string(),
                         call_id: state.call_id.clone(),
                         name: state.name.clone(),
+                        namespace: state.namespace.clone(),
                         arguments: state.arguments.clone(),
                     }),
                 ));
@@ -443,17 +451,23 @@ impl StreamState {
         // `function.name` on the very first delta for each index.
         let was_new = !self.tool_calls.contains_key(&chunk_index);
         if was_new {
+            let raw_name = tc
+                .function
+                .as_ref()
+                .and_then(|f| f.name.clone())
+                .unwrap_or_default();
+            // A flattened MCP namespace tool (`<namespace>__<tool>`)? Rebuild the
+            // {name, namespace} pair codex routes by; otherwise pass through.
+            let (name, namespace) = match self.namespace_map.get(&raw_name) {
+                Some((ns, bare)) => (bare.clone(), Some(ns.clone())),
+                None => (raw_name, None),
+            };
             let oi = self.next_output_index();
             let item_id = format!("fc_{}", uuid::Uuid::new_v4().simple());
             let call_id = tc
                 .id
                 .clone()
                 .unwrap_or_else(|| format!("call_{}", uuid::Uuid::new_v4().simple()));
-            let name = tc
-                .function
-                .as_ref()
-                .and_then(|f| f.name.clone())
-                .unwrap_or_default();
             if name.is_empty() {
                 warn!(
                     chunk_index,
@@ -472,6 +486,7 @@ impl StreamState {
                         status: "in_progress".to_string(),
                         call_id: call_id.clone(),
                         name: name.clone(),
+                        namespace: namespace.clone(),
                         arguments: String::new(),
                     }),
                 }),
@@ -483,6 +498,7 @@ impl StreamState {
                     item_id,
                     call_id,
                     name,
+                    namespace,
                     arguments: String::new(),
                 },
             );
@@ -500,6 +516,7 @@ impl StreamState {
             // (only after the initial open, where the first fragment was
             // already absorbed into `state.name`).
             if !was_new
+                && state.namespace.is_none()
                 && let Some(name_frag) = func.name
                 && !name_frag.is_empty()
             {
@@ -594,6 +611,7 @@ impl StreamState {
                         status: "completed".to_string(),
                         call_id: s.call_id.clone(),
                         name: s.name.clone(),
+                        namespace: s.namespace.clone(),
                         arguments: s.arguments.clone(),
                     },
                 )
@@ -693,9 +711,10 @@ pub fn translate_response_stream(
     upstream: reqwest::Response,
     model: String,
     created_at: i64,
+    namespace_map: NamespaceMap,
 ) -> Pin<Box<dyn Stream<Item = Result<SseEvent, std::convert::Infallible>> + Send>> {
     Box::pin(try_stream! {
-        let mut state = StreamState::new(model, created_at);
+        let mut state = StreamState::new(model, created_at, namespace_map);
         for ev in state.lifecycle_open() {
             yield ev.into_axum();
         }
@@ -751,7 +770,7 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     fn make_state() -> StreamState {
-        let mut s = StreamState::new("deepseek-v4-flash".to_string(), 1_700_000_000);
+        let mut s = StreamState::new("deepseek-v4-flash".to_string(), 1_700_000_000, NamespaceMap::new());
         // Pin the ids so snapshots are stable.
         s.response_id = "resp_test".to_string();
         s.text_item_id = "msg_test".to_string();

@@ -1977,6 +1977,7 @@ dependencies = [
  "codex-config",
  "codex-core",
  "codex-core-plugins",
+ "codex-deepseek-proxy",
  "codex-exec-server",
  "codex-extension-api",
  "codex-external-agent-migration",

@@ -525,6 +525,21 @@ pub async fn run_main_with_transport_options(
         }
     };
 
+    // Auto-spawn the in-tree codex-deepseek-proxy when the active provider is
+    // "deepseek" and its base_url points at a loopback address. Mirrors the
+    // tui/exec startup hook (see tui/src/lib.rs) so clients driving codex over
+    // the app-server (e.g. the desktop GUI) get the same zero-config in-process
+    // proxy. Idempotent; skips when base_url is external or the port is bound.
+    if config.model_provider_id == codex_model_provider_info::DEEPSEEK_PROVIDER_ID
+        && let Some(base_url) = config.model_provider.base_url.as_deref()
+    {
+        let _ = codex_deepseek_proxy::ensure_running(
+            base_url,
+            codex_deepseek_proxy::DEFAULT_UPSTREAM_URL,
+        )
+        .await;
+    }
+
     let otel = codex_core::otel_init::build_provider(
         &config,
         env!("CARGO_PKG_VERSION"),

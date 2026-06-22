@@ -32,6 +32,7 @@ use crate::chat::ChatTool;
 use crate::chat::ChatToolCall;
 use crate::chat::ChatToolCallFunction;
 use crate::chat::StreamOptions;
+use crate::chat::ThinkingConfig;
 use crate::responses::Input;
 use crate::responses::InputItem;
 use crate::responses::ResponsesRequest;
@@ -41,14 +42,15 @@ use crate::responses::ResponsesTool;
 /// skipped rather than rejected. We may switch this to `Result` later if a
 /// real failure mode appears (e.g. malformed required field on a function_call
 /// that we cannot reasonably default).
-pub fn responses_to_chat(req: ResponsesRequest) -> ChatRequest {
+pub fn responses_to_chat(req: ResponsesRequest) -> (ChatRequest, NamespaceMap) {
     // Compute reasoning_effort up-front so the message-building pass below
     // knows whether thinking mode is active for this request.
-    let reasoning_effort = req
-        .reasoning
-        .as_ref()
-        .and_then(|r| r.effort.as_deref())
-        .and_then(translate_reasoning_effort);
+    let reasoning_effort_raw = req.reasoning.as_ref().and_then(|r| r.effort.as_deref());
+    // Explicit "thinking off" sentinel from the GUI — distinct from reasoning
+    // simply being absent (which we leave alone, so DeepSeek's default-on
+    // behaviour and the existing tests stay unchanged).
+    let thinking_off = matches!(reasoning_effort_raw, Some("none") | Some("off"));
+    let reasoning_effort = reasoning_effort_raw.and_then(translate_reasoning_effort);
     let thinking_mode = reasoning_effort.is_some();
 
     let mut messages = Vec::new();
@@ -102,7 +104,10 @@ pub fn responses_to_chat(req: ResponsesRequest) -> ChatRequest {
         }
     }
 
-    let tools = req.tools.and_then(translate_tools);
+    let (tools, namespace_map) = match req.tools {
+        Some(tools) => translate_tools(tools),
+        None => (None, NamespaceMap::new()),
+    };
     let tool_choice = req.tool_choice.map(translate_tool_choice);
     let stream = req.stream.unwrap_or(false);
 
@@ -126,7 +131,7 @@ pub fn responses_to_chat(req: ResponsesRequest) -> ChatRequest {
         None
     };
 
-    ChatRequest {
+    (ChatRequest {
         model: req.model,
         messages,
         temperature,
@@ -137,8 +142,12 @@ pub fn responses_to_chat(req: ResponsesRequest) -> ChatRequest {
         tool_choice,
         parallel_tool_calls: req.parallel_tool_calls,
         reasoning_effort,
+        // Only emit the switch for the explicit off sentinel (→ disabled);
+        // otherwise omit it and let DeepSeek's default-on reasoning stand, so
+        // normal turns and the existing translation tests are unaffected.
+        thinking: thinking_off.then(|| ThinkingConfig::new(false)),
         stream_options,
-    }
+    }, namespace_map)
 }
 
 /// DeepSeek's `/chat/completions` accepts `reasoning_effort` ∈ {high, max}.
@@ -147,6 +156,10 @@ pub fn responses_to_chat(req: ResponsesRequest) -> ChatRequest {
 /// kicks in (the user asked for *some* reasoning).
 fn translate_reasoning_effort(effort: &str) -> Option<String> {
     match effort {
+        // Thinking-off sentinel sent by the GUI when the user disables thinking:
+        // no reasoning_effort → thinking_mode false → caller emits
+        // `thinking: {type: disabled}` and keeps temperature/top_p.
+        "none" | "off" => None,
         "high" | "low" | "medium" => Some("high".to_string()),
         "xhigh" | "max" => Some("max".to_string()),
         other => {
@@ -388,11 +401,28 @@ fn text_of_content_part(part: &Value) -> Option<String> {
     }
 }
 
-fn translate_tools(tools: Vec<ResponsesTool>) -> Option<Vec<ChatTool>> {
-    let chat_tools: Vec<ChatTool> = tools
-        .into_iter()
-        .filter_map(|t| match t.tool_type.as_str() {
-            "function" => Some(ChatTool {
+/// Maps a flattened function name (`<namespace>__<tool>`) we expose to DeepSeek
+/// back to the `(namespace, tool)` pair codex routes MCP/namespace tool calls
+/// by. Built per request in `translate_tools`, consumed in `stream.rs`.
+pub type NamespaceMap = std::collections::HashMap<String, (String, String)>;
+
+const MCP_TOOL_NAME_DELIMITER: &str = "__";
+
+/// Translate Responses tools → Chat Completions function tools.
+///
+/// `function` tools pass through. `namespace` tools (codex groups each MCP
+/// server's tools under one; the tool's `name` is the callable namespace, e.g.
+/// `mcp__memory`) are **flattened**: each sub-tool becomes a top-level function
+/// named `<namespace>__<tool>`, and the returned map remembers how to rebuild
+/// the `{name, namespace}` pair on the way back — DeepSeek/ChatCompletions has
+/// no namespace field, but codex routes MCP calls by it. Other tool types
+/// (`web_search`, `custom`/apply_patch, …) are dropped: DeepSeek can't drive them.
+fn translate_tools(tools: Vec<ResponsesTool>) -> (Option<Vec<ChatTool>>, NamespaceMap) {
+    let mut chat_tools: Vec<ChatTool> = Vec::new();
+    let mut namespace_map = NamespaceMap::new();
+    for t in tools {
+        match t.tool_type.as_str() {
+            "function" => chat_tools.push(ChatTool {
                 tool_type: "function".to_string(),
                 function: ChatFunctionDef {
                     name: t.name.unwrap_or_default(),
@@ -401,20 +431,42 @@ fn translate_tools(tools: Vec<ResponsesTool>) -> Option<Vec<ChatTool>> {
                     strict: t.strict,
                 },
             }),
+            "namespace" => {
+                let namespace = t.name.unwrap_or_default();
+                if namespace.is_empty() {
+                    continue;
+                }
+                for sub in t.tools.into_iter().flatten() {
+                    if sub.tool_type != "function" {
+                        continue;
+                    }
+                    let bare = sub.name.unwrap_or_default();
+                    if bare.is_empty() {
+                        continue;
+                    }
+                    let flat = format!("{namespace}{MCP_TOOL_NAME_DELIMITER}{bare}");
+                    namespace_map.insert(flat.clone(), (namespace.clone(), bare));
+                    chat_tools.push(ChatTool {
+                        tool_type: "function".to_string(),
+                        function: ChatFunctionDef {
+                            name: flat,
+                            description: sub.description,
+                            parameters: sub.parameters,
+                            strict: sub.strict,
+                        },
+                    });
+                }
+            }
             other => {
                 tracing::warn!(
                     tool_type = other,
-                    "non-function tool dropped (DeepSeek only supports function tools)"
+                    "tool type dropped (DeepSeek supports only function tools; namespace tools are flattened)"
                 );
-                None
             }
-        })
-        .collect();
-    if chat_tools.is_empty() {
-        None
-    } else {
-        Some(chat_tools)
+        }
     }
+    let tools = (!chat_tools.is_empty()).then_some(chat_tools);
+    (tools, namespace_map)
 }
 
 /// Responses uses `{"type": "function", "name": "..."}`; ChatCompletions uses
@@ -443,8 +495,39 @@ mod tests {
     }
 
     fn translate(req: serde_json::Value) -> serde_json::Value {
-        let chat = responses_to_chat(parse(req));
+        let (chat, _ns) = responses_to_chat(parse(req));
         serde_json::to_value(chat).expect("chat serializes")
+    }
+
+    /// A `namespace` tool (codex's grouping for an MCP server) flattens into
+    /// one function per sub-tool, named `<namespace>__<tool>`.
+    #[test]
+    fn namespace_tool_flattens_into_function_tools() {
+        let (chat, ns) = responses_to_chat(parse(serde_json::json!({
+            "model": "deepseek-v4-pro",
+            "tools": [{
+                "type": "namespace",
+                "name": "mcp__memory",
+                "tools": [
+                    { "type": "function", "name": "create_entities",
+                      "parameters": { "type": "object", "properties": {} } },
+                    { "type": "function", "name": "read_graph",
+                      "parameters": { "type": "object", "properties": {} } }
+                ]
+            }]
+        })));
+        let names: Vec<String> = chat
+            .tools
+            .unwrap()
+            .into_iter()
+            .map(|t| t.function.name)
+            .collect();
+        assert_eq!(names, ["mcp__memory__create_entities", "mcp__memory__read_graph"]);
+        // …and the reverse map rebuilds the {namespace, name} codex routes by.
+        assert_eq!(
+            ns.get("mcp__memory__create_entities"),
+            Some(&("mcp__memory".to_string(), "create_entities".to_string()))
+        );
     }
 
     #[test]
@@ -1049,6 +1132,54 @@ mod tests {
             "reasoning": {"effort": "wibble"}
         }));
         assert_eq!(out["reasoning_effort"], "high");
+    }
+
+    // ---------- thinking switch (DeepSeek V4) ----------
+
+    #[test]
+    fn thinking_off_sentinel_disables_and_drops_effort() {
+        // GUI "thinking off" sends effort "none": emit thinking:{disabled}, drop
+        // reasoning_effort, and keep sampling params (non-thinking mode).
+        let out = translate(json!({
+            "model": "deepseek-v4-pro",
+            "input": "hi",
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "reasoning": {"effort": "none"}
+        }));
+        assert_eq!(out["thinking"], json!({"type": "disabled"}));
+        assert!(
+            out.get("reasoning_effort").is_none(),
+            "off sentinel must drop reasoning_effort"
+        );
+        assert_eq!(out["temperature"], 0.7);
+        assert_eq!(out["top_p"], 0.9);
+    }
+
+    #[test]
+    fn thinking_on_omits_the_switch() {
+        // Reasoning present → rely on DeepSeek's default-on; no `thinking` field,
+        // so normal turns stay byte-identical to before this feature.
+        let out = translate(json!({
+            "model": "deepseek-v4-pro",
+            "input": "hi",
+            "reasoning": {"effort": "high"}
+        }));
+        assert_eq!(out["reasoning_effort"], "high");
+        assert!(
+            out.get("thinking").is_none(),
+            "switch should be omitted when reasoning is on"
+        );
+    }
+
+    #[test]
+    fn no_reasoning_field_omits_the_switch() {
+        // A plain request (no reasoning at all) is left untouched.
+        let out = translate(json!({
+            "model": "deepseek-v4-pro",
+            "input": "hi"
+        }));
+        assert!(out.get("thinking").is_none());
     }
 
     // ---------- shared ----------

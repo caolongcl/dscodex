@@ -117,6 +117,10 @@ pub struct ResponsesTool {
     pub parameters: Option<Value>,
     #[serde(default)]
     pub strict: Option<bool>,
+    /// Sub-tools of a `type: "namespace"` tool (codex groups each MCP server's
+    /// tools under one). Each entry is itself a `function` tool.
+    #[serde(default)]
+    pub tools: Option<Vec<ResponsesTool>>,
 }
 
 // ============================================================================
@@ -164,6 +168,10 @@ pub struct FunctionCallItem {
     pub status: String,
     pub call_id: String,
     pub name: String,
+    /// Namespace codex routes the call by (set when this came from a flattened
+    /// MCP namespace tool). Omitted for plain function tools.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<String>,
     pub arguments: String,
 }
 
