@@ -337,7 +337,7 @@ impl HistoryCell for SessionHeaderHistoryCell {
             Span::from(">_ ").dim(),
             Span::from("OpenAI Codex").bold(),
             Span::from(" ").dim(),
-            Span::from(format!("(v{})", self.version)).dim(),
+            Span::from(format!("(v{}) dev", self.version)).dim(),
         ];
 
         const CHANGE_MODEL_HINT_COMMAND: &str = "/model";
@@ -402,7 +402,7 @@ impl HistoryCell for SessionHeaderHistoryCell {
 
     fn raw_lines(&self) -> Vec<Line<'static>> {
         let mut lines = vec![
-            Line::from(format!("OpenAI Codex (v{})", self.version)),
+            Line::from(format!("OpenAI Codex (v{}) dev", self.version)),
             Line::from(format!(
                 "model: {}{}",
                 self.model,

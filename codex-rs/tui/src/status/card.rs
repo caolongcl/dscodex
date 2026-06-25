@@ -714,7 +714,7 @@ impl HistoryCell for StatusHistoryCell {
             Span::from(format!("{}>_ ", FieldFormatter::INDENT)).dim(),
             Span::from("OpenAI Codex").bold(),
             Span::from(" ").dim(),
-            Span::from(format!("(v{CODEX_CLI_VERSION})")).dim(),
+            Span::from(format!("(v{CODEX_CLI_VERSION}) dev")).dim(),
         ]));
 
         let available_inner_width = usize::from(width.saturating_sub(4));
