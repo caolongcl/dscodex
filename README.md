@@ -110,7 +110,7 @@ export DEEPSEEK_API_KEY=sk-...
 codex
 ```
 
-That's it — Codex translates Responses ↔ DeepSeek Chat Completions **in-process** and talks straight to `api.deepseek.com`. No proxy process, no local port. (The translation lives in the `codex-deepseek-proxy` crate as an `HttpTransport`; `core` selects it when the provider `base_url` is `api.deepseek.com`.)
+That's it — Codex translates Responses ↔ DeepSeek Chat Completions **in-process** and talks straight to `api.deepseek.com`. No proxy process, no local port. (The translation lives in the `codex-deepseek-proxy` crate as a `DeepSeekTransport`; `core` selects it when the provider `base_url` host is `api.deepseek.com`.)
 
 ### Supported features
 
